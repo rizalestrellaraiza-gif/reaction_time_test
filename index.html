@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <title>Reaction Time Test</title>
 
-  <!-- jsPsych (working CDN) -->
-  <script src="https://cdn.jsdelivr.net/npm/jspsych@7.3.3/dist/jspsych.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@jspsych/plugin-html-keyboard-response@1.2.0"></script>
-  <link href="https://cdn.jsdelivr.net/npm/jspsych@7.3.3/css/jspsych.css" rel="stylesheet">
+  <!-- jsPsych (mobile-friendly links) -->
+  <script src="https://unpkg.com/jspsych@7.3.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.1.0"></script>
+  <link href="https://unpkg.com/jspsych@7.3.0/css/jspsych.css" rel="stylesheet">
 
   <style>
     body {
@@ -35,13 +35,14 @@
 
   <script>
     document.getElementById("start-btn").addEventListener("click", () => {
-      document.getElementById("start-btn").style.display = "none"; // hide button
+      document.getElementById("start-btn").style.display = "none";
 
       const jsPsych = initJsPsych({
-        on_finish: () => jsPsych.data.displayData()
+        on_finish: function() {
+          jsPsych.data.displayData("json");
+        }
       });
 
-      // Colors for test
       const colors = [
         {color: 'red', label: 'red'},
         {color: 'green', label: 'green'},
@@ -54,27 +55,33 @@
         type: jsPsychHtmlKeyboardResponse,
         stimulus: '<div style="font-size:60px;">+</div>',
         choices: "NO_KEYS",
-        trial_duration: 500
+        trial_duration: 1000
       };
 
-      const trials = [];
+      const color_trial = {
+        type: jsPsychHtmlKeyboardResponse,
+        stimulus: function() {
+          const stim = jsPsych.timelineVariable('color');
+          return `<div style="width:100vw;height:100vh;background-color:${stim};"></div>`;
+        },
+        choices: [' '],
+        data: { task: 'reaction' },
+        on_start: function(trial) {
+          trial.start_time = performance.now();
+        },
+        on_finish: function(data) {
+          data.rt = performance.now() - data.start_time;
+        }
+      };
 
-      // Make continuous color trials
-      colors.forEach(c => {
-        trials.push(fixation);
-        trials.push({
-          type: jsPsychHtmlKeyboardResponse,
-          stimulus: `<div style="width:100vw;height:100vh;background-color:${c.color};"></div>`,
-          choices: [' '],
-          data: {color: c.label},
-          on_start: (trial) => trial.start_time = performance.now(),
-          on_finish: (data) => {
-            data.reaction_time = performance.now() - data.start_time;
-          }
-        });
+      const timeline = [];
+
+      timeline.push({
+        timeline: [fixation, color_trial],
+        timeline_variables: colors
       });
 
-      jsPsych.run(trials);
+      jsPsych.run(timeline);
     });
   </script>
 </body>
