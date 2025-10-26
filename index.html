@@ -63,28 +63,27 @@
     const trialCounter = document.getElementById('trialCounter');
     const stim = document.getElementById('stimulus');
 
-    // 🔆 Super neon colors
+    // 🎨 Color sets
     const neonColors = [
-      { name: 'Neon Yellow', color: '#FFFF00', glow: '0 0 40px #FFFF33', type: 'Neon' },
-      { name: 'Neon Pink', color: '#FF00FF', glow: '0 0 40px #FF66FF', type: 'Neon' },
-      { name: 'Neon Orange', color: '#FF4500', glow: '0 0 40px #FF6633', type: 'Neon' }
+      { name: 'Neon Yellow', color: '#FFFF33', glow: '0 0 60px #FFFF66', type: 'Neon' },
+      { name: 'Neon Pink', color: '#FF00FF', glow: '0 0 60px #FF66FF', type: 'Neon' },
+      { name: 'Neon Orange', color: '#FF5F1F', glow: '0 0 60px #FF884D', type: 'Neon' }
     ];
 
-    // 🌫️ Neutral colors
     const neutralColors = [
       { name: 'Beige', color: '#D8CAB8', glow: 'none', type: 'Neutral' },
       { name: 'Gray', color: '#8C8C8C', glow: 'none', type: 'Neutral' },
       { name: 'Light Brown', color: '#B6957A', glow: 'none', type: 'Neutral' }
     ];
 
-    // Combine twice for reliability
+    // Two sets (total 12 trials)
     let allTrials = [...neonColors, ...neutralColors, ...neonColors, ...neutralColors]
       .sort(() => Math.random() - 0.5);
+    
     let trial = 0;
     let startTime;
     let results = [];
 
-    // Countdown sound
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function playBeep(freq, dur) {
       const osc = audioCtx.createOscillator();
@@ -122,8 +121,8 @@
       }, 1000);
     }
 
-    // Random interval between trials (unpredictable)
     function showColor() {
+      // Random delay before color shows up
       const delay = randomDelay(1000, 4000);
       setTimeout(() => {
         const current = allTrials[trial];
@@ -149,6 +148,7 @@
       stim.style.boxShadow = 'none';
       trial++;
 
+      // 12 trials guaranteed to appear
       if (trial < allTrials.length) {
         const nextDelay = randomDelay(1200, 4000);
         setTimeout(showColor, nextDelay);
@@ -193,7 +193,7 @@
       msg.style.display = 'none';
       readyBtn.style.display = 'none';
       alert("Tap the screen as soon as the color appears!");
-      audioCtx.resume(); // enable audio
+      audioCtx.resume();
       showCountdown();
     });
 
