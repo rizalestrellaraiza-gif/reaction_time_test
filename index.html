@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Simple Reaction Time Test</title>
+  <title>Neon vs Neutral Reaction Time Test</title>
   <style>
     body {
       margin: 0;
@@ -12,7 +12,7 @@
       font-family: Arial, sans-serif;
       text-align: center;
     }
-    #start {
+    #start, #ready {
       background-color: #2e86de;
       color: white;
       border: none;
@@ -31,29 +31,52 @@
 <body>
   <button id="start">Start Reaction Test</button>
   <div id="stimulus"></div>
+  <button id="ready" style="display:none;">I’m Ready!</button>
 
   <script>
     const startBtn = document.getElementById('start');
+    const readyBtn = document.getElementById('ready');
     const stim = document.getElementById('stimulus');
 
-    const colors = ['red', 'green', 'blue', 'yellow', 'magenta'];
+    const neonColors = [
+      {name: 'Neon Pink', color: '#FF6EC7'},
+      {name: 'Neon Yellow', color: '#FFFF33'},
+      {name: 'Neon Green', color: '#39FF14'}
+    ];
+
+    const neutralColors = [
+      {name: 'Beige', color: '#F5F5DC'},
+      {name: 'Gray', color: '#A9A9A9'},
+      {name: 'Light Brown', color: '#C4A484'}
+    ];
+
+    let allTrials = [...neonColors, ...neutralColors, ...neonColors, ...neutralColors]
+      .sort(() => Math.random() - 0.5);
+
     let trial = 0;
     let startTime;
     let results = [];
 
     function showColor() {
-      const color = colors[trial % colors.length];
-      stim.style.backgroundColor = color;
+      const current = allTrials[trial];
+      stim.style.backgroundColor = current.color;
       stim.style.display = 'block';
       startTime = performance.now();
     }
 
     function nextTrial() {
       const rt = performance.now() - startTime;
-      results.push({ trial: trial + 1, color: colors[trial % colors.length], reaction_time: Math.round(rt) });
+      results.push({
+        trial: trial + 1,
+        type: neonColors.some(c => c.name === allTrials[trial].name) ? 'Neon' : 'Neutral',
+        color: allTrials[trial].name,
+        reaction_time: Math.round(rt)
+      });
+
       stim.style.display = 'none';
       trial++;
-      if (trial < colors.length) {
+
+      if (trial < allTrials.length) {
         setTimeout(showColor, 1000);
       } else {
         showResults();
@@ -62,15 +85,33 @@
 
     function showResults() {
       stim.style.display = 'none';
-      document.body.innerHTML = "<h2>Reaction Time Results</h2>" +
-        "<table border='1' style='margin:auto;color:white;border-collapse:collapse;'>" +
-        "<tr><th>Trial</th><th>Color</th><th>Reaction Time (ms)</th></tr>" +
-        results.map(r => `<tr><td>${r.trial}</td><td>${r.color}</td><td>${r.reaction_time}</td></tr>`).join('') +
-        "</table>";
+
+      const neonRT = results.filter(r => r.type === 'Neon').map(r => r.reaction_time);
+      const neutralRT = results.filter(r => r.type === 'Neutral').map(r => r.reaction_time);
+      const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+
+      document.body.innerHTML = `
+        <h2>Reaction Time Results</h2>
+        <table border='1' style='margin:auto;color:white;border-collapse:collapse;'>
+          <tr><th>Trial</th><th>Type</th><th>Color</th><th>Reaction Time (ms)</th></tr>
+          ${results.map(r => `<tr><td>${r.trial}</td><td>${r.type}</td><td>${r.color}</td><td>${r.reaction_time}</td></tr>`).join('')}
+        </table>
+        <h3>Average Reaction Time</h3>
+        <p>Neon Colors: ${Math.round(avg(neonRT))} ms</p>
+        <p>Neutral Colors: ${Math.round(avg(neutralRT))} ms</p>
+      `;
     }
 
     startBtn.addEventListener('click', () => {
       startBtn.style.display = 'none';
+      document.body.style.backgroundColor = 'black';
+      document.body.innerHTML += "<h2 id='msg'>Are you ready?</h2>";
+      readyBtn.style.display = 'inline-block';
+    });
+
+    readyBtn.addEventListener('click', () => {
+      readyBtn.style.display = 'none';
+      document.getElementById('msg').remove();
       alert("Tap the screen as soon as the color appears!");
       setTimeout(showColor, 1000);
     });
