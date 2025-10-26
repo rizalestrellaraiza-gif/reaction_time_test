@@ -1,196 +1,132 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Neon vs Neutral Reaction Time Test</title>
+  <meta charset="UTF-8" />
+  <title>Neon vs Neutral Color Reaction Test</title>
+
+  <!-- jsPsych core -->
+  <script src="https://unpkg.com/jspsych@7.3.3/dist/jspsych.js"></script>
+
+  <!-- jsPsych plugin -->
+  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.1.1/dist/index.browser.js"></script>
+
+  <!-- CSS -->
+  <link href="https://unpkg.com/jspsych@7.3.3/css/jspsych.css" rel="stylesheet" />
+
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-      background-color: black;
+    body { background-color: #000; color: white; text-align: center; }
+    .color-box {
+      width: 250px;
+      height: 250px;
+      margin: 100px auto;
+      border-radius: 20px;
+      border: 3px solid white;
+    }
+    .fixation {
+      font-size: 60px;
       color: white;
-      font-family: Arial, sans-serif;
-      text-align: center;
-      overflow: hidden;
-    }
-    #start, #ready {
-      background-color: #2e86de;
-      color: white;
-      border: none;
-      padding: 15px 30px;
-      border-radius: 10px;
-      font-size: 20px;
-      margin-top: 40vh;
-    }
-    #stimulus {
-      width: 100vw;
-      height: 100vh;
-      display: none;
-    }
-    #countdown, #trialCounter {
-      position: absolute;
-      width: 100%;
-      text-align: center;
-      top: 40vh;
-      font-size: 80px;
-      display: none;
-    }
-    #trialCounter {
-      top: 10px;
-      font-size: 22px;
-      color: #ccc;
-    }
-    #message {
-      font-size: 28px;
-      margin-top: 35vh;
-      display: none;
+      margin-top: 150px;
     }
   </style>
 </head>
+
 <body>
-  <button id="start">Start Reaction Test</button>
-  <div id="message">Are you ready?</div>
-  <button id="ready" style="display:none;">I’m Ready!</button>
-  <div id="countdown"></div>
-  <div id="trialCounter"></div>
-  <div id="stimulus"></div>
-
   <script>
-    const startBtn = document.getElementById('start');
-    const readyBtn = document.getElementById('ready');
-    const msg = document.getElementById('message');
-    const countdownEl = document.getElementById('countdown');
-    const trialCounter = document.getElementById('trialCounter');
-    const stim = document.getElementById('stimulus');
-
-    // 🔆 Super neon colors with glow effect
-    const neonColors = [
-      { name: 'Neon Yellow', color: '#FFFF00', glow: '0 0 40px #FFFF33', type: 'Neon' },
-      { name: 'Neon Pink', color: '#FF00FF', glow: '0 0 40px #FF66FF', type: 'Neon' },
-      { name: 'Neon Orange', color: '#FF4500', glow: '0 0 40px #FF6633', type: 'Neon' }
-    ];
-
-    // 🌫️ Muted neutral colors
-    const neutralColors = [
-      { name: 'Beige', color: '#D8CAB8', glow: 'none', type: 'Neutral' },
-      { name: 'Gray', color: '#8C8C8C', glow: 'none', type: 'Neutral' },
-      { name: 'Light Brown', color: '#B6957A', glow: 'none', type: 'Neutral' }
-    ];
-
-    // Combine twice for reliability
-    let allTrials = [...neonColors, ...neutralColors, ...neonColors, ...neutralColors]
-      .sort(() => Math.random() - 0.5);
-    let trial = 0;
-    let startTime;
-    let results = [];
-
-    // Simple tick-tock sound using Web Audio API
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    function playBeep(freq, dur) {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      osc.start();
-      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
-      osc.stop(audioCtx.currentTime + dur);
-    }
-
-    function randomDelay(min, max) {
-      return Math.random() * (max - min) + min;
-    }
-
-    function showCountdown() {
-      let count = 3;
-      countdownEl.style.display = 'block';
-      countdownEl.textContent = count;
-      playBeep(600, 0.2);
-      const interval = setInterval(() => {
-        count--;
-        if (count > 0) {
-          countdownEl.textContent = count;
-          playBeep(600 + count * 100, 0.2); // slightly changing pitch
-        } else {
-          clearInterval(interval);
-          countdownEl.style.display = 'none';
-          playBeep(200, 0.3); // "tok" lower tone
-          setTimeout(showColor, 500);
-        }
-      }, 1000);
-    }
-
-    function showColor() {
-      const delay = randomDelay(1500, 2500);
-      setTimeout(() => {
-        const current = allTrials[trial];
-        stim.style.backgroundColor = current.color;
-        stim.style.boxShadow = current.glow;
-        stim.style.display = 'block';
-        trialCounter.textContent = `Trial ${trial + 1} of ${allTrials.length}`;
-        trialCounter.style.display = 'block';
-        startTime = performance.now();
-      }, delay);
-    }
-
-    function nextTrial() {
-      const rt = performance.now() - startTime;
-      results.push({
-        trial: trial + 1,
-        type: allTrials[trial].type,
-        color: allTrials[trial].name,
-        reaction_time: Math.round(rt)
-      });
-
-      stim.style.display = 'none';
-      stim.style.boxShadow = 'none';
-      trial++;
-
-      if (trial < allTrials.length) {
-        setTimeout(showColor, 1000);
-      } else {
-        showResults();
+    // Initialize jsPsych
+    const jsPsych = initJsPsych({
+      on_finish: function() {
+        jsPsych.data.displayData();
       }
-    }
-
-    function showResults() {
-      stim.style.display = 'none';
-      trialCounter.style.display = 'none';
-
-      const neonRT = results.filter(r => r.type === 'Neon').map(r => r.reaction_time);
-      const neutralRT = results.filter(r => r.type === 'Neutral').map(r => r.reaction_time);
-      const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
-
-      document.body.innerHTML = `
-        <h2>Reaction Time Results</h2>
-        <table border='1' style='margin:auto;color:white;border-collapse:collapse;'>
-          <tr><th>Trial</th><th>Type</th><th>Color</th><th>Reaction Time (ms)</th></tr>
-          ${results.map(r => `<tr><td>${r.trial}</td><td>${r.type}</td><td>${r.color}</td><td>${r.reaction_time}</td></tr>`).join('')}
-        </table>
-        <h3>Average Reaction Time</h3>
-        <p>Neon Colors: ${Math.round(avg(neonRT))} ms</p>
-        <p>Neutral Colors: ${Math.round(avg(neutralRT))} ms</p>
-        <button onclick="location.reload()">Restart Test</button>
-      `;
-    }
-
-    startBtn.addEventListener('click', () => {
-      startBtn.style.display = 'none';
-      msg.style.display = 'block';
-      readyBtn.style.display = 'inline-block';
     });
 
-    readyBtn.addEventListener('click', () => {
-      msg.style.display = 'none';
-      readyBtn.style.display = 'none';
-      alert("Tap the screen as soon as the color appears!");
-      audioCtx.resume(); // resume sound for mobile
-      showCountdown();
-    });
+    // =============================
+    // Color settings
+    // =============================
+    const neonColors = [
+      {color: '#FF6EC7', type: 'neon', name: 'neon pink'},
+      {color: '#FFFF33', type: 'neon', name: 'neon yellow'},
+      {color: '#FF9900', type: 'neon', name: 'neon orange'}
+    ];
 
-    stim.addEventListener('click', nextTrial);
+    const neutralColors = [
+      {color: '#F5F5DC', type: 'neutral', name: 'beige'},
+      {color: '#A9A9A9', type: 'neutral', name: 'gray'},
+      {color: '#D2B48C', type: 'neutral', name: 'light brown'}
+    ];
+
+    // Duplicate and shuffle stimuli (12 trials)
+    let stimuli = [...neonColors, ...neutralColors, ...neonColors, ...neutralColors];
+    stimuli = jsPsych.randomization.shuffle(stimuli);
+
+    // =============================
+    // Instructions
+    // =============================
+    const instructions = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: `
+        <h2>Neon vs Neutral Color Reaction Test</h2>
+        <p>You will see a '+' appear briefly, followed by a colored box.</p>
+        <p>Your task: <strong>press the SPACEBAR as fast as you can</strong> when the color appears.</p>
+        <p>Try to be quick and accurate!</p>
+        <p><em>Press any key to begin.</em></p>
+      `
+    };
+
+    // =============================
+    // Fixation cross (randomized)
+    // =============================
+    const fixation = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: "<div class='fixation'>+</div>",
+      choices: "NO_KEYS",
+      trial_duration: function() {
+        // Random between 500–1500 ms
+        return jsPsych.randomization.sampleWithoutReplacement([500, 750, 1000, 1250, 1500], 1)[0];
+      }
+    };
+
+    // =============================
+    // Color trial (reaction)
+    // =============================
+    const color_trial = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: function() {
+        const c = jsPsych.timelineVariable('color');
+        return `<div class='color-box' style='background-color:${c}'></div>`;
+      },
+      choices: [' '],
+      prompt: "<p>Press SPACE as fast as you can!</p>",
+      data: {
+        type: jsPsych.timelineVariable('type'),
+        color: jsPsych.timelineVariable('color'),
+        name: jsPsych.timelineVariable('name')
+      }
+    };
+
+    // =============================
+    // Inter-trial interval (random blank)
+    // =============================
+    const iti = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: "",
+      choices: "NO_KEYS",
+      trial_duration: function() {
+        return jsPsych.randomization.sampleWithoutReplacement([500, 1000, 1500], 1)[0];
+      }
+    };
+
+    // =============================
+    // Trial procedure
+    // =============================
+    const trial_procedure = {
+      timeline: [fixation, color_trial, iti],
+      timeline_variables: stimuli
+    };
+
+    // =============================
+    // Run experiment
+    // =============================
+    jsPsych.run([instructions, trial_procedure]);
   </script>
 </body>
 </html>
