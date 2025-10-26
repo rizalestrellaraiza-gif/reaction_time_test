@@ -2,13 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Reaction Time Test</title>
-
-  <!-- jsPsych (mobile-friendly links) -->
-  <script src="https://unpkg.com/jspsych@7.3.0"></script>
-  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.1.0"></script>
-  <link href="https://unpkg.com/jspsych@7.3.0/css/jspsych.css" rel="stylesheet">
-
+  <title>Simple Reaction Time Test</title>
   <style>
     body {
       margin: 0;
@@ -17,72 +11,71 @@
       color: white;
       font-family: Arial, sans-serif;
       text-align: center;
-      overflow: hidden;
     }
-    button {
+    #start {
       background-color: #2e86de;
       color: white;
       border: none;
-      padding: 15px 25px;
-      font-size: 18px;
+      padding: 15px 30px;
       border-radius: 10px;
+      font-size: 20px;
       margin-top: 40vh;
+    }
+    #stimulus {
+      width: 100vw;
+      height: 100vh;
+      display: none;
     }
   </style>
 </head>
 <body>
-  <button id="start-btn">Start Reaction Test</button>
+  <button id="start">Start Reaction Test</button>
+  <div id="stimulus"></div>
 
   <script>
-    document.getElementById("start-btn").addEventListener("click", () => {
-      document.getElementById("start-btn").style.display = "none";
+    const startBtn = document.getElementById('start');
+    const stim = document.getElementById('stimulus');
 
-      const jsPsych = initJsPsych({
-        on_finish: function() {
-          jsPsych.data.displayData("json");
-        }
-      });
+    const colors = ['red', 'green', 'blue', 'yellow', 'magenta'];
+    let trial = 0;
+    let startTime;
+    let results = [];
 
-      const colors = [
-        {color: 'red', label: 'red'},
-        {color: 'green', label: 'green'},
-        {color: 'blue', label: 'blue'},
-        {color: 'yellow', label: 'yellow'},
-        {color: 'magenta', label: 'magenta'}
-      ];
+    function showColor() {
+      const color = colors[trial % colors.length];
+      stim.style.backgroundColor = color;
+      stim.style.display = 'block';
+      startTime = performance.now();
+    }
 
-      const fixation = {
-        type: jsPsychHtmlKeyboardResponse,
-        stimulus: '<div style="font-size:60px;">+</div>',
-        choices: "NO_KEYS",
-        trial_duration: 1000
-      };
+    function nextTrial() {
+      const rt = performance.now() - startTime;
+      results.push({ trial: trial + 1, color: colors[trial % colors.length], reaction_time: Math.round(rt) });
+      stim.style.display = 'none';
+      trial++;
+      if (trial < colors.length) {
+        setTimeout(showColor, 1000);
+      } else {
+        showResults();
+      }
+    }
 
-      const color_trial = {
-        type: jsPsychHtmlKeyboardResponse,
-        stimulus: function() {
-          const stim = jsPsych.timelineVariable('color');
-          return `<div style="width:100vw;height:100vh;background-color:${stim};"></div>`;
-        },
-        choices: [' '],
-        data: { task: 'reaction' },
-        on_start: function(trial) {
-          trial.start_time = performance.now();
-        },
-        on_finish: function(data) {
-          data.rt = performance.now() - data.start_time;
-        }
-      };
+    function showResults() {
+      stim.style.display = 'none';
+      document.body.innerHTML = "<h2>Reaction Time Results</h2>" +
+        "<table border='1' style='margin:auto;color:white;border-collapse:collapse;'>" +
+        "<tr><th>Trial</th><th>Color</th><th>Reaction Time (ms)</th></tr>" +
+        results.map(r => `<tr><td>${r.trial}</td><td>${r.color}</td><td>${r.reaction_time}</td></tr>`).join('') +
+        "</table>";
+    }
 
-      const timeline = [];
-
-      timeline.push({
-        timeline: [fixation, color_trial],
-        timeline_variables: colors
-      });
-
-      jsPsych.run(timeline);
+    startBtn.addEventListener('click', () => {
+      startBtn.style.display = 'none';
+      alert("Tap the screen as soon as the color appears!");
+      setTimeout(showColor, 1000);
     });
+
+    stim.addEventListener('click', nextTrial);
   </script>
 </body>
 </html>
