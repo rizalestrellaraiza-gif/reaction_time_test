@@ -63,14 +63,14 @@
     const trialCounter = document.getElementById('trialCounter');
     const stim = document.getElementById('stimulus');
 
-    // 🔆 Super neon colors with glow effect
+    // 🔆 Super neon colors
     const neonColors = [
       { name: 'Neon Yellow', color: '#FFFF00', glow: '0 0 40px #FFFF33', type: 'Neon' },
       { name: 'Neon Pink', color: '#FF00FF', glow: '0 0 40px #FF66FF', type: 'Neon' },
       { name: 'Neon Orange', color: '#FF4500', glow: '0 0 40px #FF6633', type: 'Neon' }
     ];
 
-    // 🌫️ Muted neutral colors
+    // 🌫️ Neutral colors
     const neutralColors = [
       { name: 'Beige', color: '#D8CAB8', glow: 'none', type: 'Neutral' },
       { name: 'Gray', color: '#8C8C8C', glow: 'none', type: 'Neutral' },
@@ -84,7 +84,7 @@
     let startTime;
     let results = [];
 
-    // Simple beep sound (for countdown only)
+    // Countdown sound
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function playBeep(freq, dur) {
       const osc = audioCtx.createOscillator();
@@ -122,8 +122,9 @@
       }, 1000);
     }
 
+    // Random interval between trials (unpredictable)
     function showColor() {
-      const delay = randomDelay(1000, 4000); // random delay before showing
+      const delay = randomDelay(1000, 4000);
       setTimeout(() => {
         const current = allTrials[trial];
         stim.style.backgroundColor = current.color;
@@ -132,22 +133,6 @@
         trialCounter.textContent = `Trial ${trial + 1} of ${allTrials.length}`;
         trialCounter.style.display = 'block';
         startTime = performance.now();
-
-        // ⏳ Random visible duration (if not clicked)
-        const visibleDuration = randomDelay(500, 1500);
-        setTimeout(() => {
-          if (stim.style.display === 'block') {
-            stim.style.display = 'none';
-            stim.style.boxShadow = 'none';
-            trial++;
-            if (trial < allTrials.length) {
-              const nextDelay = randomDelay(1200, 4000);
-              setTimeout(showColor, nextDelay);
-            } else {
-              showResults();
-            }
-          }
-        }, visibleDuration);
       }, delay);
     }
 
@@ -178,13 +163,18 @@
 
       const neonRT = results.filter(r => r.type === 'Neon').map(r => r.reaction_time);
       const neutralRT = results.filter(r => r.type === 'Neutral').map(r => r.reaction_time);
-      const avg = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+      const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
 
       document.body.innerHTML = `
         <h2>Reaction Time Results</h2>
         <table border='1' style='margin:auto;color:white;border-collapse:collapse;'>
           <tr><th>Trial</th><th>Type</th><th>Color</th><th>Reaction Time (ms)</th></tr>
-          ${results.map(r => `<tr><td>${r.trial}</td><td>${r.type}</td><td>${r.color}</td><td>${r.reaction_time}</td></tr>`).join('')}
+          ${results.map(r => `<tr>
+            <td>${r.trial}</td>
+            <td>${r.type}</td>
+            <td>${r.color}</td>
+            <td>${r.reaction_time}</td>
+          </tr>`).join('')}
         </table>
         <h3>Average Reaction Time</h3>
         <p>Neon Colors: ${Math.round(avg(neonRT))} ms</p>
@@ -203,7 +193,7 @@
       msg.style.display = 'none';
       readyBtn.style.display = 'none';
       alert("Tap the screen as soon as the color appears!");
-      audioCtx.resume();
+      audioCtx.resume(); // enable audio
       showCountdown();
     });
 
