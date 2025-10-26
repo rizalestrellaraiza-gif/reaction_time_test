@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Neon vs Neutral Color Reaction Test</title>
+
+  <!-- jsPsych library -->
+  <script src="https://unpkg.com/jspsych@7.3.3/dist/jspsych.js"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.1.1"></script>
+  <link href="https://unpkg.com/jspsych@7.3.3/css/jspsych.css" rel="stylesheet" />
+
+  <style>
+    body { background-color: #000; color: white; text-align: center; }
+    .color-box {
+      width: 250px;
+      height: 250px;
+      margin: 100px auto;
+      border-radius: 20px;
+      border: 3px solid white;
+    }
+    .fixation {
+      font-size: 60px;
+      color: white;
+      margin-top: 150px;
+    }
+  </style>
+</head>
+
+<body>
+  <script>
+    // =============================
+    // Editable Color Settings
+    // =============================
+    const neonColors = [
+      {color: '#FF6EC7', type: 'neon', name: 'neon pink'},
+      {color: '#FFFF33', type: 'neon', name: 'neon yellow'},
+      {color: '#FF9900', type: 'neon', name: 'neon orange'}
+    ];
+
+    const neutralColors = [
+      {color: '#F5F5DC', type: 'neutral', name: 'beige'},
+      {color: '#A9A9A9', type: 'neutral', name: 'gray'},
+      {color: '#D2B48C', type: 'neutral', name: 'light brown'}
+    ];
+
+    // Duplicate each color twice to make 12 total trials
+    let stimuli = [...neonColors, ...neutralColors, ...neonColors, ...neutralColors];
+    stimuli = jsPsych.randomization.shuffle(stimuli);
+
+    // =============================
+    // Trial Definitions
+    // =============================
+
+    // Fixation cross (500ms)
+    const fixation = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: "<div class='fixation'>+</div>",
+      choices: "NO_KEYS",
+      trial_duration: 500
+    };
+
+    // Color trial: press SPACE as fast as possible
+    const color_trial = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: function() {
+        const c = jsPsych.timelineVariable('color');
+        return `<div class='color-box' style='background-color:${c}'></div>`;
+      },
+      choices: [' '],
+      prompt: "<p>Press SPACE as fast as you can!</p>",
+      data: {
+        type: jsPsych.timelineVariable('type'),
+        color: jsPsych.timelineVariable('color'),
+        name: jsPsych.timelineVariable('name')
+      }
