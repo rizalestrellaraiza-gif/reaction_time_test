@@ -84,7 +84,7 @@
     let startTime;
     let results = [];
 
-    // Simple tick-tock sound using Web Audio API
+    // Simple beep sound (for countdown only)
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function playBeep(freq, dur) {
       const osc = audioCtx.createOscillator();
@@ -99,12 +99,10 @@
       osc.stop(audioCtx.currentTime + dur);
     }
 
-    // 🔁 Random delay helper
     function randomDelay(min, max) {
       return Math.random() * (max - min) + min;
     }
 
-    // Countdown before test begins
     function showCountdown() {
       let count = 3;
       countdownEl.style.display = 'block';
@@ -124,9 +122,8 @@
       }, 1000);
     }
 
-    // 🎨 Show color after random delay
     function showColor() {
-      const delay = randomDelay(1000, 3000); // ⬅️ random delay before stimulus
+      const delay = randomDelay(1000, 4000); // random delay before showing
       setTimeout(() => {
         const current = allTrials[trial];
         stim.style.backgroundColor = current.color;
@@ -135,10 +132,25 @@
         trialCounter.textContent = `Trial ${trial + 1} of ${allTrials.length}`;
         trialCounter.style.display = 'block';
         startTime = performance.now();
+
+        // ⏳ Random visible duration (if not clicked)
+        const visibleDuration = randomDelay(500, 1500);
+        setTimeout(() => {
+          if (stim.style.display === 'block') {
+            stim.style.display = 'none';
+            stim.style.boxShadow = 'none';
+            trial++;
+            if (trial < allTrials.length) {
+              const nextDelay = randomDelay(1200, 4000);
+              setTimeout(showColor, nextDelay);
+            } else {
+              showResults();
+            }
+          }
+        }, visibleDuration);
       }, delay);
     }
 
-    // 🖱️ Handle click & next trial with random interval
     function nextTrial() {
       const rt = performance.now() - startTime;
       results.push({
@@ -153,21 +165,20 @@
       trial++;
 
       if (trial < allTrials.length) {
-        const interTrialDelay = randomDelay(1500, 3000); // ⬅️ randomized pause between trials
-        setTimeout(showColor, interTrialDelay);
+        const nextDelay = randomDelay(1200, 4000);
+        setTimeout(showColor, nextDelay);
       } else {
         showResults();
       }
     }
 
-    // 🧾 Display final results
     function showResults() {
       stim.style.display = 'none';
       trialCounter.style.display = 'none';
 
       const neonRT = results.filter(r => r.type === 'Neon').map(r => r.reaction_time);
       const neutralRT = results.filter(r => r.type === 'Neutral').map(r => r.reaction_time);
-      const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+      const avg = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
 
       document.body.innerHTML = `
         <h2>Reaction Time Results</h2>
@@ -182,7 +193,6 @@
       `;
     }
 
-    // 🟦 Button event listeners
     startBtn.addEventListener('click', () => {
       startBtn.style.display = 'none';
       msg.style.display = 'block';
@@ -193,7 +203,7 @@
       msg.style.display = 'none';
       readyBtn.style.display = 'none';
       alert("Tap the screen as soon as the color appears!");
-      audioCtx.resume(); // resume sound for mobile
+      audioCtx.resume();
       showCountdown();
     });
 
