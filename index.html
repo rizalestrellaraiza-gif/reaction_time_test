@@ -2,131 +2,146 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Neon vs Neutral Color Reaction Test</title>
-
-  <!-- jsPsych core -->
-  <script src="https://unpkg.com/jspsych@7.3.3/dist/jspsych.js"></script>
-
-  <!-- jsPsych plugin -->
-  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.1.1/dist/index.browser.js"></script>
-
-  <!-- CSS -->
-  <link href="https://unpkg.com/jspsych@7.3.3/css/jspsych.css" rel="stylesheet" />
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reaction Time Test</title>
   <style>
-    body { background-color: #000; color: white; text-align: center; }
-    .color-box {
-      width: 250px;
-      height: 250px;
-      margin: 100px auto;
-      border-radius: 20px;
-      border: 3px solid white;
-    }
-    .fixation {
-      font-size: 60px;
+    body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: black;
       color: white;
-      margin-top: 150px;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+
+    #colorBox {
+      width: 300px;
+      height: 300px;
+      margin-top: 20px;
+      border-radius: 10px;
+      background-color: black;
+      cursor: pointer;
+    }
+
+    #startButton {
+      padding: 10px 20px;
+      font-size: 18px;
+      background-color: #222;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    #startButton:hover {
+      background-color: #444;
+    }
+
+    #message {
+      font-size: 22px;
+      margin-top: 10px;
     }
   </style>
 </head>
-
 <body>
+  <h1>Reaction Time Test</h1>
+  <p id="message">Press "Start" to begin.</p>
+  <button id="startButton">Start Reaction Test</button>
+  <div id="colorBox"></div>
+
   <script>
-    // Initialize jsPsych
-    const jsPsych = initJsPsych({
-      on_finish: function() {
-        jsPsych.data.displayData();
+    const neonColors = ["#FFFF33", "#FF33CC", "#FF9900"]; // Neon yellow, pink, orange
+    const neutralColors = ["#F5F5DC", "#BEBEBE", "#C4A484"]; // Beige, gray, light brown
+    const colorSequence = [...neonColors, ...neutralColors, ...neonColors, ...neutralColors]
+      .sort(() => Math.random() - 0.5);
+
+    let currentIndex = 0;
+    let reactionTimes = [];
+    let waitingForClick = false;
+    let startTime;
+    const colorBox = document.getElementById("colorBox");
+    const message = document.getElementById("message");
+    const startButton = document.getElementById("startButton");
+
+    function playTick() {
+      const audio = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+      audio.play();
+    }
+
+    function showReady() {
+      message.textContent = "Are you ready?";
+      colorBox.style.backgroundColor = "black";
+      startButton.style.display = "none";
+      setTimeout(startTest, 2000);
+    }
+
+    function startTest() {
+      message.textContent = "Wait for the color...";
+      colorBox.style.backgroundColor = "black";
+      currentIndex = 0;
+      reactionTimes = [];
+      showNextColor();
+    }
+
+    function showNextColor() {
+      // RANDOM DELAY between 1.5s and 3s
+      const randomDelay = Math.floor(Math.random() * 1500) + 1500;
+
+      message.textContent = "Wait for the color...";
+      colorBox.style.backgroundColor = "black";
+      waitingForClick = false;
+
+      setTimeout(() => {
+        const currentColor = colorSequence[currentIndex];
+        colorBox.style.backgroundColor = currentColor;
+        message.textContent = `Color ${currentIndex + 1} of ${colorSequence.length}`;
+        startTime = performance.now();
+        waitingForClick = true;
+        playTick();
+      }, randomDelay);
+    }
+
+    colorBox.addEventListener("click", () => {
+      if (waitingForClick) {
+        const reactionTime = performance.now() - startTime;
+        reactionTimes.push({
+          color: colorSequence[currentIndex],
+          time: reactionTime
+        });
+        waitingForClick = false;
+        currentIndex++;
+
+        if (currentIndex < colorSequence.length) {
+          showNextColor();
+        } else {
+          endTest();
+        }
       }
     });
 
-    // =============================
-    // Color settings
-    // =============================
-    const neonColors = [
-      {color: '#FF6EC7', type: 'neon', name: 'neon pink'},
-      {color: '#FFFF33', type: 'neon', name: 'neon yellow'},
-      {color: '#FF9900', type: 'neon', name: 'neon orange'}
-    ];
+    function endTest() {
+      colorBox.style.backgroundColor = "black";
+      const neonTimes = reactionTimes.filter(rt => neonColors.includes(rt.color)).map(rt => rt.time);
+      const neutralTimes = reactionTimes.filter(rt => neutralColors.includes(rt.color)).map(rt => rt.time);
 
-    const neutralColors = [
-      {color: '#F5F5DC', type: 'neutral', name: 'beige'},
-      {color: '#A9A9A9', type: 'neutral', name: 'gray'},
-      {color: '#D2B48C', type: 'neutral', name: 'light brown'}
-    ];
+      const avgNeon = neonTimes.reduce((a, b) => a + b, 0) / neonTimes.length;
+      const avgNeutral = neutralTimes.reduce((a, b) => a + b, 0) / neutralTimes.length;
 
-    // Duplicate and shuffle stimuli (12 trials)
-    let stimuli = [...neonColors, ...neutralColors, ...neonColors, ...neutralColors];
-    stimuli = jsPsych.randomization.shuffle(stimuli);
+      message.innerHTML = `
+        ✅ Test complete! <br><br>
+        Average Reaction Time (Neon): <b>${avgNeon.toFixed(0)} ms</b><br>
+        Average Reaction Time (Neutral): <b>${avgNeutral.toFixed(0)} ms</b><br><br>
+        Difference: <b>${(avgNeon - avgNeutral).toFixed(0)} ms</b>
+      `;
+      startButton.style.display = "block";
+      startButton.textContent = "Restart Test";
+    }
 
-    // =============================
-    // Instructions
-    // =============================
-    const instructions = {
-      type: jsPsychHtmlKeyboardResponse,
-      stimulus: `
-        <h2>Neon vs Neutral Color Reaction Test</h2>
-        <p>You will see a '+' appear briefly, followed by a colored box.</p>
-        <p>Your task: <strong>press the SPACEBAR as fast as you can</strong> when the color appears.</p>
-        <p>Try to be quick and accurate!</p>
-        <p><em>Press any key to begin.</em></p>
-      `
-    };
-
-    // =============================
-    // Fixation cross (randomized)
-    // =============================
-    const fixation = {
-      type: jsPsychHtmlKeyboardResponse,
-      stimulus: "<div class='fixation'>+</div>",
-      choices: "NO_KEYS",
-      trial_duration: function() {
-        // Random between 500–1500 ms
-        return jsPsych.randomization.sampleWithoutReplacement([500, 750, 1000, 1250, 1500], 1)[0];
-      }
-    };
-
-    // =============================
-    // Color trial (reaction)
-    // =============================
-    const color_trial = {
-      type: jsPsychHtmlKeyboardResponse,
-      stimulus: function() {
-        const c = jsPsych.timelineVariable('color');
-        return `<div class='color-box' style='background-color:${c}'></div>`;
-      },
-      choices: [' '],
-      prompt: "<p>Press SPACE as fast as you can!</p>",
-      data: {
-        type: jsPsych.timelineVariable('type'),
-        color: jsPsych.timelineVariable('color'),
-        name: jsPsych.timelineVariable('name')
-      }
-    };
-
-    // =============================
-    // Inter-trial interval (random blank)
-    // =============================
-    const iti = {
-      type: jsPsychHtmlKeyboardResponse,
-      stimulus: "",
-      choices: "NO_KEYS",
-      trial_duration: function() {
-        return jsPsych.randomization.sampleWithoutReplacement([500, 1000, 1500], 1)[0];
-      }
-    };
-
-    // =============================
-    // Trial procedure
-    // =============================
-    const trial_procedure = {
-      timeline: [fixation, color_trial, iti],
-      timeline_variables: stimuli
-    };
-
-    // =============================
-    // Run experiment
-    // =============================
-    jsPsych.run([instructions, trial_procedure]);
+    startButton.addEventListener("click", showReady);
   </script>
 </body>
 </html>
