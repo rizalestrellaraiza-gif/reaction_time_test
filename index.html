@@ -1,99 +1,81 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Neon vs Neutral Color Reaction Test</title>
+  <meta charset="UTF-8">
+  <title>Reaction Time Test</title>
 
-  <!-- jsPsych library -->
-  <script src="https://unpkg.com/jspsych@7.3.3/dist/jspsych.js"></script>
-  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.1.1"></script>
-  <link href="https://unpkg.com/jspsych@7.3.3/css/jspsych.css" rel="stylesheet" />
+  <!-- jsPsych (working CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/jspsych@7.3.3/dist/jspsych.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@jspsych/plugin-html-keyboard-response@1.2.0"></script>
+  <link href="https://cdn.jsdelivr.net/npm/jspsych@7.3.3/css/jspsych.css" rel="stylesheet">
 
   <style>
-    body { background-color: #000; color: white; text-align: center; }
-    .color-box {
-      width: 250px;
-      height: 250px;
-      margin: 100px auto;
-      border-radius: 20px;
-      border: 3px solid white;
-    }
-    .fixation {
-      font-size: 60px;
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: black;
       color: white;
-      margin-top: 150px;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      overflow: hidden;
+    }
+    button {
+      background-color: #2e86de;
+      color: white;
+      border: none;
+      padding: 15px 25px;
+      font-size: 18px;
+      border-radius: 10px;
+      margin-top: 40vh;
     }
   </style>
 </head>
-
 <body>
+  <button id="start-btn">Start Reaction Test</button>
+
   <script>
-    // =============================
-    // Editable Color Settings
-    // =============================
-    const neonColors = [
-      {color: '#FF6EC7', type: 'neon', name: 'neon pink'},
-      {color: '#FFFF33', type: 'neon', name: 'neon yellow'},
-      {color: '#FF9900', type: 'neon', name: 'neon orange'}
-    ];
+    document.getElementById("start-btn").addEventListener("click", () => {
+      document.getElementById("start-btn").style.display = "none"; // hide button
 
-    const neutralColors = [
-      {color: '#F5F5DC', type: 'neutral', name: 'beige'},
-      {color: '#A9A9A9', type: 'neutral', name: 'gray'},
-      {color: '#D2B48C', type: 'neutral', name: 'light brown'}
-    ];
+      const jsPsych = initJsPsych({
+        on_finish: () => jsPsych.data.displayData()
+      });
 
-    // Duplicate each color twice to make 12 total trials
-    let stimuli = [...neonColors, ...neutralColors, ...neonColors, ...neutralColors];
-    stimuli = jsPsych.randomization.shuffle(stimuli);
+      // Colors for test
+      const colors = [
+        {color: 'red', label: 'red'},
+        {color: 'green', label: 'green'},
+        {color: 'blue', label: 'blue'},
+        {color: 'yellow', label: 'yellow'},
+        {color: 'magenta', label: 'magenta'}
+      ];
 
-    // =============================
-    // Trial Definitions
-    // =============================
+      const fixation = {
+        type: jsPsychHtmlKeyboardResponse,
+        stimulus: '<div style="font-size:60px;">+</div>',
+        choices: "NO_KEYS",
+        trial_duration: 500
+      };
 
-    // Fixation cross (500ms)
-    const fixation = {
-      type: jsPsychHtmlKeyboardResponse,
-      stimulus: "<div class='fixation'>+</div>",
-      choices: "NO_KEYS",
-      trial_duration: 500
-    };
+      const trials = [];
 
-    // Color trial: press SPACE as fast as possible
-    const color_trial = {
-      type: jsPsychHtmlKeyboardResponse,
-      stimulus: function() {
-        const c = jsPsych.timelineVariable('color');
-        return `<div class='color-box' style='background-color:${c}'></div>`;
-      },
-      choices: [' '],
-      prompt: "<p>Press SPACE as fast as you can!</p>",
-      data: {
-        type: jsPsych.timelineVariable('type'),
-        color: jsPsych.timelineVariable('color'),
-        name: jsPsych.timelineVariable('name')
-      },
-      on_finish: function(data) {
-        data.rt = jsPsych.data.getLastTrialData().values()[0].rt;
-      }
-    };
+      // Make continuous color trials
+      colors.forEach(c => {
+        trials.push(fixation);
+        trials.push({
+          type: jsPsychHtmlKeyboardResponse,
+          stimulus: `<div style="width:100vw;height:100vh;background-color:${c.color};"></div>`,
+          choices: [' '],
+          data: {color: c.label},
+          on_start: (trial) => trial.start_time = performance.now(),
+          on_finish: (data) => {
+            data.reaction_time = performance.now() - data.start_time;
+          }
+        });
+      });
 
-    // Combine fixation + color trial
-    const trial_procedure = {
-      timeline: [fixation, color_trial],
-      timeline_variables: stimuli
-    };
-
-    // =============================
-    // Initialize jsPsych
-    // =============================
-    const jsPsych = initJsPsych({
-      on_finish: function() {
-        jsPsych.data.displayData();
-      }
+      jsPsych.run(trials);
     });
-
-    jsPsych.run([trial_procedure]);
   </script>
 </body>
 </html>
