@@ -11,6 +11,7 @@
       color: white;
       font-family: Arial, sans-serif;
       text-align: center;
+      overflow: hidden;
     }
     #start, #ready {
       background-color: #2e86de;
@@ -26,10 +27,18 @@
       height: 100vh;
       display: none;
     }
-    #countdown {
+    #countdown, #trialCounter {
+      position: absolute;
+      width: 100%;
+      text-align: center;
+      top: 40vh;
       font-size: 80px;
-      margin-top: 40vh;
       display: none;
+    }
+    #trialCounter {
+      top: 10px;
+      font-size: 22px;
+      color: #ccc;
     }
     #message {
       font-size: 28px;
@@ -43,6 +52,7 @@
   <div id="message">Are you ready?</div>
   <button id="ready" style="display:none;">I’m Ready!</button>
   <div id="countdown"></div>
+  <div id="trialCounter"></div>
   <div id="stimulus"></div>
 
   <script>
@@ -50,17 +60,21 @@
     const readyBtn = document.getElementById('ready');
     const msg = document.getElementById('message');
     const countdownEl = document.getElementById('countdown');
+    const trialCounter = document.getElementById('trialCounter');
     const stim = document.getElementById('stimulus');
 
+    // ✨ More vivid NEON colors (really bright and saturated)
     const neonColors = [
-      { name: 'Neon Yellow', color: '#FFFF33', type: 'Neon' },
-      { name: 'Neon Pink', color: '#FF6EC7', type: 'Neon' },
-      { name: 'Neon Orange', color: '#FF9900', type: 'Neon' }
+      { name: 'Neon Yellow', color: '#FFFF00', type: 'Neon' },   // pure yellow
+      { name: 'Neon Pink', color: '#FF10F0', type: 'Neon' },     // vivid magenta-pink
+      { name: 'Neon Orange', color: '#FF5F1F', type: 'Neon' }    // bright orange-red
     ];
+
+    // 🌫️ Muted NEUTRAL colors (less saturation)
     const neutralColors = [
-      { name: 'Beige', color: '#F5F5DC', type: 'Neutral' },
-      { name: 'Gray', color: '#A9A9A9', type: 'Neutral' },
-      { name: 'Light Brown', color: '#C4A484', type: 'Neutral' }
+      { name: 'Beige', color: '#D9CAB3', type: 'Neutral' },
+      { name: 'Gray', color: '#8C8C8C', type: 'Neutral' },
+      { name: 'Light Brown', color: '#B6977A', type: 'Neutral' }
     ];
 
     let allTrials = [...neonColors, ...neutralColors, ...neonColors, ...neutralColors]
@@ -95,6 +109,8 @@
         const current = allTrials[trial];
         stim.style.backgroundColor = current.color;
         stim.style.display = 'block';
+        trialCounter.textContent = `Trial ${trial + 1} of ${allTrials.length}`;
+        trialCounter.style.display = 'block';
         startTime = performance.now();
       }, delay);
     }
@@ -120,6 +136,8 @@
 
     function showResults() {
       stim.style.display = 'none';
+      trialCounter.style.display = 'none';
+
       const neonRT = results.filter(r => r.type === 'Neon').map(r => r.reaction_time);
       const neutralRT = results.filter(r => r.type === 'Neutral').map(r => r.reaction_time);
       const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
