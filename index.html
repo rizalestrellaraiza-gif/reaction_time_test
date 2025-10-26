@@ -72,4 +72,28 @@
         type: jsPsych.timelineVariable('type'),
         color: jsPsych.timelineVariable('color'),
         name: jsPsych.timelineVariable('name')
+      },
+      on_finish: function(data) {
+        data.rt = jsPsych.data.getLastTrialData().values()[0].rt;
       }
+    };
+
+    // Combine fixation + color trial
+    const trial_procedure = {
+      timeline: [fixation, color_trial],
+      timeline_variables: stimuli
+    };
+
+    // =============================
+    // Initialize jsPsych
+    // =============================
+    const jsPsych = initJsPsych({
+      on_finish: function() {
+        jsPsych.data.displayData();
+      }
+    });
+
+    jsPsych.run([trial_procedure]);
+  </script>
+</body>
+</html>
