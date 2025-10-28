@@ -90,7 +90,7 @@
     const trialCounter = document.getElementById('trialCounter');
     const stim = document.getElementById('stimulus');
 
-    // 🔆 Super bright neon colors
+    // 🔆 Bright neon colors
     const neonColors = [
       { name: 'Neon Yellow', color: '#FFFF00', glow: '0 0 120px #FFFF66', type: 'Neon' },
       { name: 'Neon Pink', color: '#FF00FF', glow: '0 0 120px #FF66FF', type: 'Neon' },
@@ -112,7 +112,7 @@
     let results = [];
     let stimulusActive = false;
 
-    // Sound
+    // 🔉 Beep sound setup
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function playBeep(freq, dur) {
       const osc = audioCtx.createOscillator();
@@ -127,12 +127,13 @@
       osc.stop(audioCtx.currentTime + dur);
     }
 
-    // Random varied interval
+    // 🎲 Random varied interval
     function randomDelay() {
       const delays = [400, 800, 1200, 2000, 2600, 3200];
       return delays[Math.floor(Math.random() * delays.length)];
     }
 
+    // ⏱ Countdown
     function showCountdown() {
       let count = 3;
       countdownEl.style.display = 'block';
@@ -152,6 +153,7 @@
       }, 1000);
     }
 
+    // 🎨 Show color
     function showColor() {
       const delay = randomDelay();
       setTimeout(() => {
@@ -166,6 +168,7 @@
       }, delay);
     }
 
+    // 🧭 Record reaction
     function recordReaction() {
       if (!stimulusActive) return;
       const rt = performance.now() - startTime;
@@ -186,13 +189,13 @@
       }
     }
 
+    // 📊 Show results + interpretation
     function showResults() {
       stim.style.display = 'none';
       trialCounter.style.display = 'none';
       const neonRT = results.filter(r => r.type === 'Neon').map(r => r.reaction_time);
       const neutralRT = results.filter(r => r.type === 'Neutral').map(r => r.reaction_time);
       const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
-
       const avgNeon = Math.round(avg(neonRT));
       const avgNeutral = Math.round(avg(neutralRT));
 
@@ -223,7 +226,7 @@
       `;
     }
 
-    // Start & Ready logic
+    // 🧠 Start + Ready buttons
     startBtn.addEventListener('click', () => {
       container.style.display = 'none';
       msg.style.display = 'block';
@@ -237,15 +240,15 @@
       showCountdown();
     });
 
-    // Allow SPACEBAR or TAP for both laptop and phone
+    // 🔘 Both spacebar and tap
     document.addEventListener('keydown', (e) => {
       if (e.code === 'Space') {
         e.preventDefault();
         recordReaction();
       }
     });
-
     stim.addEventListener('click', recordReaction);
+    document.addEventListener('touchstart', recordReaction, { passive: true });
   </script>
 </body>
 </html>
