@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>🎨 Reaction Time Test</title>
+  <title>Neon vs Neutral — Reaction Time Test (Research)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
     body{margin:0;font-family:Arial,Segoe UI,Helvetica,sans-serif;background:#fff;color:#111;text-align:center;overflow:hidden}
@@ -23,14 +23,15 @@
 </head>
 <body>
   <div id="container">
-    <h1>🎨 Reaction Time Test</h1>
+    <h1>🎨 Neon vs Neutral — Reaction Time Test</h1>
     <p>
       You will see colors appear one at a time. <strong>Press SPACE or TAP</strong> the screen the moment you see the color.
+      <br>Please keep screen brightness steady and test in a well-lit room. Use a single device (no switching mid-test).
     </p>
 
     <div style="margin-top:10px">
       <label for="pid">Participant ID</label><br>
-      <input id="pid" type="text" placeholder="e.g., P001" style="width:220px">
+      <input id="pid" type="text" placeholder="e.g., RZ001" style="width:220px">
     </div>
 
     <div style="margin-top:14px">
@@ -59,6 +60,7 @@ const CONFIG = {
   minRT: 100,
   maxRT: 1500,
   maxInvalidPct: 0.2,
+  // Put your Google Apps Script web app URL here:
   GSHEET_ENDPOINT_URL: 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'
 };
 
@@ -85,14 +87,14 @@ const fixation = document.getElementById('fixation');
 const stim = document.getElementById('stimulus');
 
 /* ========== STATE ========== */
-let sequenceMain = [];
+let sequenceMain = [];   // 12 trials array
 let sequencePractice = [];
 let currentSeq = [];
 let isPractice = true;
 let trialIndex = 0;
 let stimulusActive = false;
 let tStimOn = null;
-let logs = [];
+let logs = [];           // trial-by-trial logs
 let seedStr = null;
 let startType = null;
 let audioCtx = null;
@@ -109,6 +111,7 @@ function userAgentInfo(){ return {
   dpr: window.devicePixelRatio || 1
 };}
 
+/* Seeded (reproducible) shuffle helpers */
 function seedFromString(s){
   let h = 2166136261 >>> 0;
   for (let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h += (h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24); }
@@ -124,6 +127,7 @@ function seededShuffle(arr, rng){
   return a;
 }
 
+/* Generate main 12-trial sequence with constraint (maxSameTypeRun) */
 function buildBaseList(){
   const list = [];
   neonColors.forEach(c=> { for (let i=0;i<CONFIG.repsPerColor;i++) list.push({...c}); });
@@ -149,10 +153,24 @@ function generateSequence(seedVal=null){
     const s = seededShuffle(base, rng);
     if (validMaxRun(s, CONFIG.maxSameTypeRun)) return s;
   }
+  // fallback: simple repair shuffle (best-effort)
+  let s = seededShuffle(base, rng);
+  for (let iter=0; iter<5000; iter++){
+    if (validMaxRun(s, CONFIG.maxSameTypeRun)) return s;
+    // find a place with long run and swap
+    for (let i=0;i<s.length-1;i++){
+      if (i>0 && s[i].type===s[i-1].type && s[i].type===s[i+1].type){
+        // find j with different type
+        const j = s.findIndex((x,idx)=> x.type!==s[i].type && idx!==i);
+        if (j>0) { [s[i],s[j]] = [s[j],s[i]]; break; }
+      }
+    }
+  }
   console.warn('Could not fully satisfy max-run; returning best-effort sequence');
-  return seededShuffle(base, rng);
+  return s;
 }
 
+/* Build practice set (simple different colors) */
 function buildPractice(){
   return [
     { id:'P1', name:'Practice Blue', color:'#2E6CE6', glow:'0 0 80px #6EA0FF', type:'Practice' },
@@ -161,17 +179,21 @@ function buildPractice(){
   ];
 }
 
+/* ========== UI Flow ========== */
 startBtn.addEventListener('click', () => {
   const pid = pidInput.value.trim();
   if (!pid) { alert('Please enter Participant ID'); return; }
+  // initialize audio context on user gesture
   try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e){}
-  sequenceMain = generateSequence();
+  // setup sequences
+  sequenceMain = generateSequence(); // seed stored in seedStr
   sequencePractice = buildPractice();
   currentSeq = sequencePractice.slice();
   isPractice = true;
   trialIndex = 0;
   logs = [];
   startType = null;
+  // show ready UI + countdown
   document.getElementById('container').style.display = 'none';
   msgEl.style.display = 'block';
   msgEl.textContent = 'Get ready. Practice trials first.';
@@ -181,6 +203,7 @@ startBtn.addEventListener('click', () => {
   }, 800);
 });
 
+/* Countdown and start */
 function showCountdown(){
   let c = 3;
   countdownEl.style.display = 'block';
@@ -193,8 +216,10 @@ function showCountdown(){
   }, 1000);
 }
 
+/* Fixation then show color after ITI */
 function showFixation(){
   fixation.style.display = 'block';
+  const fixDur = randBetween(CONFIG.fixationMsMin, CONFIG.fixationMsMax);
   setTimeout(()=> {
     fixation.style.display = 'none';
     const iti = randBetween(CONFIG.itiMinMs, CONFIG.itiMaxMs);
@@ -202,6 +227,7 @@ function showFixation(){
   }, randBetween(CONFIG.fixationMsMin, CONFIG.fixationMsMax));
 }
 
+/* Show stimulus */
 function showColor(){
   if (trialIndex >= currentSeq.length) return endBlock();
   const cur = currentSeq[trialIndex];
@@ -212,18 +238,28 @@ function showColor(){
   trialCounter.textContent = `${isPractice ? 'Practice' : 'Trial'} ${trialIndex+1} of ${currentSeq.length}`;
   tStimOn = performance.now();
   stimulusActive = true;
-  if (!startType && !isPractice) startType = cur.type;
-  setTimeout(()=> { if (stimulusActive){ recordReaction(true); } }, CONFIG.maxRT + 2000);
+  if (!startType && !isPractice) startType = cur.type; // record start type for main block
+  // safety timeout to mark lapse if no response
+  setTimeout(()=> {
+    if (stimulusActive){
+      recordReaction(true); // null response (lapse)
+    }
+  }, CONFIG.maxRT + 2000);
 }
 
+/* Record reaction. If 'autoLapse' true => no response recorded (null) */
 function recordReaction(autoLapse=false){
-  if (!stimulusActive && !autoLapse) return;
+  if (!stimulusActive && !autoLapse) return; // ignore presses before stimulus
   const tNow = performance.now();
   const rt = autoLapse ? null : Math.round(tNow - tStimOn);
   const cur = currentSeq[Math.max(0, trialIndex)];
+  // If pressed before stimulusActive (premature), we ignore already above.
+  // Hide stimulus and log
   stim.style.display = 'none';
   stim.style.boxShadow = 'none';
   stimulusActive = false;
+
+  // log trial-level info
   const entry = {
     participant: pidInput.value.trim(),
     seed: seedStr,
@@ -241,12 +277,20 @@ function recordReaction(autoLapse=false){
   };
   logs.push(entry);
   trialIndex++;
-  if (trialIndex < currentSeq.length) showFixation();
-  else endBlock();
+
+  // next: either next trial, or if practice done, switch to main, or finish
+  if (trialIndex < currentSeq.length) {
+    // short pause (fixation will handle)
+    showFixation();
+  } else {
+    endBlock();
+  }
 }
 
+/* End of block (practice or main) */
 function endBlock(){
   if (isPractice){
+    // switch to main
     isPractice = false;
     currentSeq = sequenceMain.slice();
     trialIndex = 0;
@@ -254,18 +298,25 @@ function endBlock(){
     msgEl.textContent = 'Practice complete. Main test will start now.';
     setTimeout(()=> { msgEl.style.display='none'; showCountdown(); }, 1000);
   } else {
+    // finished main block
     finishExperiment();
   }
 }
 
+/* Finish: compute summary, upload, show results + CSV fallback */
 async function finishExperiment(){
+  // compute simple summaries (only main trials)
   const mainLogs = logs.filter(l => l.type !== 'Practice');
   const neonRTs = mainLogs.filter(l => l.type==='Neon' && l.rt_ms !== null && l.rt_valid).map(l => l.rt_ms);
   const neutralRTs = mainLogs.filter(l => l.type==='Neutral' && l.rt_ms !== null && l.rt_valid).map(l => l.rt_ms);
   const mean = arr => arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : null;
   const avgNeon = mean(neonRTs), avgNeutral = mean(neutralRTs);
+
+  // count invalid rate
   const invalidCount = mainLogs.filter(l => l.rt_valid===0 || l.rt_ms===null).length;
   const invalidPct = invalidCount / mainLogs.length;
+
+  // prepare payload for upload
   const payload = {
     participant: pidInput.value.trim(),
     seed: seedStr,
@@ -278,6 +329,8 @@ async function finishExperiment(){
     logs: mainLogs,
     deviceInfo: userAgentInfo()
   };
+
+  // Try upload to Google Sheets endpoint
   statusEl.textContent = 'Uploading results...';
   const endpoint = CONFIG.GSHEET_ENDPOINT_URL;
   let uploaded = false;
@@ -299,6 +352,7 @@ async function finishExperiment(){
     statusEl.textContent = 'No GSHEET endpoint configured — CSV download available.';
   }
 
+  // Show results UI (no interpretation that biases future subjects)
   document.body.innerHTML = `
     <div style="padding:20px;">
       <h2>Results — Participant ${payload.participant}</h2>
@@ -312,13 +366,17 @@ async function finishExperiment(){
       <p style="font-size:13px;color:#666;margin-top:8px">${uploaded ? 'Results uploaded to Google Sheets.' : 'Results saved locally (CSV). You can upload later.'}</p>
     </div>
   `;
+  // render table
   const tableContainer = document.getElementById('resTable');
   const rows = mainLogs.map(l => `<tr><td>${l.trialNum}</td><td>${l.type}</td><td>${l.colorName}</td><td>${l.rt_ms ?? ''}</td><td>${l.rt_valid}</td></tr>`).join('');
   tableContainer.innerHTML = `<table style="margin:auto;border-collapse:collapse"><thead><tr><th>Trial</th><th>Type</th><th>Color</th><th>RT (ms)</th><th>Valid</th></tr></thead><tbody>${rows}</tbody></table>`;
+
+  // attach download + restart
   document.getElementById('download').addEventListener('click', ()=> downloadCSV(payload));
   document.getElementById('restart').addEventListener('click', ()=> location.reload());
 }
 
+/* CSV fallback */
 function downloadCSV(payload){
   const lines = [];
   lines.push(['participant','seed','startType','timestamp_finish','avgNeon','avgNeutral','invalidCount','invalidPct'].join(','));
@@ -337,6 +395,7 @@ function downloadCSV(payload){
   URL.revokeObjectURL(a.href);
 }
 
+/* play simple beep for countdown */
 function playClick(freq=600,dur=0.12){
   try {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -345,16 +404,19 @@ function playClick(freq=600,dur=0.12){
     o.connect(g); g.connect(audioCtx.destination);
     o.frequency.value = freq; g.gain.setValueAtTime(0.12,audioCtx.currentTime);
     o.start(); o.stop(audioCtx.currentTime + dur);
-  } catch (e) { }
+  } catch (e) { /* ignore */ }
 }
 
+/* Handle key / touch input */
 document.addEventListener('keydown', e => {
   if (e.code === 'Space'){ e.preventDefault(); if (stimulusActive) recordReaction(false); }
 });
 stim.addEventListener('click', () => { if (stimulusActive) recordReaction(false); });
-document.addEventListener('touchstart', (e) => { if (stimulusActive) record document.addEventListener('touchstart', (e) => { 
-  if (stimulusActive) recordReaction(false); 
-});
+document.addEventListener('touchstart', (e) => {
+  // treat as tap; only register if stimulusActive to avoid premature
+  if (stimulusActive) { recordReaction(false); }
+}, {passive:true});
+
 </script>
 </body>
 </html>
