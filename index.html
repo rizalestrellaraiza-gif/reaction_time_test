@@ -51,13 +51,17 @@
       display: none;
       transition: background-color 0.2s;
     }
-    #countdown, #trialCounter {
+    #countdown, #trialCounter, #fixation {
       position: absolute;
       width: 100%;
       text-align: center;
       top: 40vh;
       font-size: 100px;
       display: none;
+    }
+    #fixation {
+      color: black;
+      font-size: 80px;
     }
     #trialCounter {
       top: 10px;
@@ -87,6 +91,7 @@
   <button id="ready" style="display:none;">I’m Ready!</button>
   <div id="countdown"></div>
   <div id="trialCounter"></div>
+  <div id="fixation">+</div>
   <div id="stimulus"></div>
 
   <script>
@@ -96,6 +101,7 @@
     const msg = document.getElementById('message');
     const countdownEl = document.getElementById('countdown');
     const trialCounter = document.getElementById('trialCounter');
+    const fixation = document.getElementById('fixation');
     const stim = document.getElementById('stimulus');
     const pidInput = document.getElementById('participantId');
 
@@ -151,9 +157,17 @@
           clearInterval(interval);
           countdownEl.style.display = 'none';
           playBeep(200, 0.3);
-          setTimeout(showColor, 500);
+          setTimeout(showFixation, 500);
         }
       }, 1000);
+    }
+
+    function showFixation() {
+      fixation.style.display = 'block';
+      setTimeout(() => {
+        fixation.style.display = 'none';
+        showColor();
+      }, 500);
     }
 
     function showColor() {
@@ -168,7 +182,6 @@
         startTime = performance.now();
         stimulusActive = true;
 
-        // End trial automatically after 2 seconds if no response
         setTimeout(() => {
           if (stimulusActive) {
             results.push({
@@ -182,7 +195,7 @@
             stimulusActive = false;
             trial++;
             if (trial < allTrials.length) {
-              setTimeout(showColor, randomDelay());
+              showFixation();
             } else {
               showResults();
             }
@@ -205,10 +218,25 @@
       stimulusActive = false;
       trial++;
       if (trial < allTrials.length) {
-        setTimeout(showColor, randomDelay());
+        showFixation();
       } else {
         showResults();
       }
+    }
+
+    function downloadCSV(filename, data) {
+      const csvContent =
+        "data:text/csv;charset=utf-8," +
+        ["Participant ID,Trial,Type,Color,Reaction Time (ms)",
+         ...data.map(r => `${pidInput.value},${r.trial},${r.type},${r.color},${r.reaction_time}`)
+        ].join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
 
     function showResults() {
@@ -236,6 +264,9 @@
         <p style="font-size:24px;">Neon Colors: ${avgNeon || "N/A"} ms</p>
         <p style="font-size:24px;">Neutral Colors: ${avgNeutral || "N/A"} ms</p>
         <p style="font-size:22px;color:gray;">(${missed} missed trials ignored)</p>
+        <button onclick="downloadCSV('reaction_time_${pid}.csv', results)" 
+          style="padding:15px 30px;font-size:24px;border-radius:10px;">Download CSV</button>
+        <br><br>
         <button onclick="location.reload()" style="padding:15px 30px;font-size:24px;border-radius:10px;">Restart Test</button>
       `;
     }
