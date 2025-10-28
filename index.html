@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Neon vs Neutral — Reaction Time Test (Research)</title>
+  <title>Reaction Time Test (Research)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
     body{margin:0;font-family:Arial,Segoe UI,Helvetica,sans-serif;background:#fff;color:#111;text-align:center;overflow:hidden}
@@ -10,7 +10,7 @@
     h1{font-size:36px;margin-bottom:8px}
     p{font-size:18px;line-height:1.5}
     input,button{font-size:18px;padding:10px;border-radius:8px}
-    #start,#ready,#download{background:#007bff;color:#fff;border:0;padding:14px 30px;margin-top:12px;cursor:pointer}
+    #start,#download{background:#007bff;color:#fff;border:0;padding:14px 30px;margin-top:12px;cursor:pointer}
     #stimulus{width:100vw;height:100vh;display:none;transition:background 0.12s}
     #fixation{position:absolute;top:45vh;left:50%;transform:translateX(-50%);font-size:90px;display:none}
     #countdown,#trialCounter{position:absolute;width:100%;text-align:center;top:40vh;font-size:80px;display:none}
@@ -23,7 +23,7 @@
 </head>
 <body>
   <div id="container">
-    <h1>🎨 Neon vs Neutral — Reaction Time Test</h1>
+    <h1>🎨 Reaction Time Test</h1>
     <p>
       You will see colors appear one at a time. <strong>Press SPACE or TAP</strong> the screen the moment you see the color.
       <br>Please keep screen brightness steady and test in a well-lit room. Use a single device (no switching mid-test).
@@ -52,7 +52,6 @@
 const CONFIG = {
   repsPerColor: 2,
   maxSameTypeRun: 2,
-  practiceTrials: 3,
   fixationMsMin: 800,
   fixationMsMax: 1200,
   itiMinMs: 1000,
@@ -60,7 +59,6 @@ const CONFIG = {
   minRT: 100,
   maxRT: 1500,
   maxInvalidPct: 0.2,
-  // Put your Google Apps Script web app URL here:
   GSHEET_ENDPOINT_URL: 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'
 };
 
@@ -87,21 +85,18 @@ const fixation = document.getElementById('fixation');
 const stim = document.getElementById('stimulus');
 
 /* ========== STATE ========== */
-let sequenceMain = [];   // 12 trials array
-let sequencePractice = [];
+let sequenceMain = [];
 let currentSeq = [];
-let isPractice = true;
 let trialIndex = 0;
 let stimulusActive = false;
 let tStimOn = null;
-let logs = [];           // trial-by-trial logs
+let logs = [];
 let seedStr = null;
 let startType = null;
 let audioCtx = null;
 
 /* ========== UTILITIES ========== */
 function randBetween(a,b){return a + Math.random()*(b-a);}
-function randInt(a,b){return Math.floor(randBetween(a,b+1));}
 function nowIso(){return (new Date()).toISOString();}
 function userAgentInfo(){ return {
   ua: navigator.userAgent,
@@ -110,8 +105,6 @@ function userAgentInfo(){ return {
   innerW: window.innerWidth, innerH: window.innerHeight,
   dpr: window.devicePixelRatio || 1
 };}
-
-/* Seeded (reproducible) shuffle helpers */
 function seedFromString(s){
   let h = 2166136261 >>> 0;
   for (let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h += (h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24); }
@@ -127,7 +120,7 @@ function seededShuffle(arr, rng){
   return a;
 }
 
-/* Generate main 12-trial sequence with constraint (maxSameTypeRun) */
+/* ========== MAIN SEQUENCE ========== */
 function buildBaseList(){
   const list = [];
   neonColors.forEach(c=> { for (let i=0;i<CONFIG.repsPerColor;i++) list.push({...c}); });
@@ -153,70 +146,37 @@ function generateSequence(seedVal=null){
     const s = seededShuffle(base, rng);
     if (validMaxRun(s, CONFIG.maxSameTypeRun)) return s;
   }
-  // fallback: simple repair shuffle (best-effort)
   let s = seededShuffle(base, rng);
-  for (let iter=0; iter<5000; iter++){
-    if (validMaxRun(s, CONFIG.maxSameTypeRun)) return s;
-    // find a place with long run and swap
-    for (let i=0;i<s.length-1;i++){
-      if (i>0 && s[i].type===s[i-1].type && s[i].type===s[i+1].type){
-        // find j with different type
-        const j = s.findIndex((x,idx)=> x.type!==s[i].type && idx!==i);
-        if (j>0) { [s[i],s[j]] = [s[j],s[i]]; break; }
-      }
-    }
-  }
-  console.warn('Could not fully satisfy max-run; returning best-effort sequence');
   return s;
 }
 
-/* Build practice set (simple different colors) */
-function buildPractice(){
-  return [
-    { id:'P1', name:'Practice Blue', color:'#2E6CE6', glow:'0 0 80px #6EA0FF', type:'Practice' },
-    { id:'P2', name:'Practice Red',  color:'#E63C3C', glow:'0 0 80px #FF7F7F', type:'Practice' },
-    { id:'P3', name:'Practice Green', color:'#29C74F', glow:'0 0 80px #7DFF95', type:'Practice' }
-  ];
-}
-
-/* ========== UI Flow ========== */
+/* ========== UI FLOW ========== */
 startBtn.addEventListener('click', () => {
   const pid = pidInput.value.trim();
   if (!pid) { alert('Please enter Participant ID'); return; }
-  // initialize audio context on user gesture
   try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e){}
-  // setup sequences
-  sequenceMain = generateSequence(); // seed stored in seedStr
-  sequencePractice = buildPractice();
-  currentSeq = sequencePractice.slice();
-  isPractice = true;
+  
+  sequenceMain = generateSequence();
+  currentSeq = sequenceMain.slice();
   trialIndex = 0;
   logs = [];
   startType = null;
-  // show ready UI + countdown
+
   document.getElementById('container').style.display = 'none';
-  msgEl.style.display = 'block';
-  msgEl.textContent = 'Get ready. Practice trials first.';
-  setTimeout(() => {
-    msgEl.style.display = 'none';
-    showCountdown();
-  }, 800);
+  showCountdown();
 });
 
-/* Countdown and start */
 function showCountdown(){
   let c = 3;
   countdownEl.style.display = 'block';
   countdownEl.textContent = c;
-  playClick(600,0.12);
   const iv = setInterval(()=> {
     c--;
-    if (c>0){ countdownEl.textContent = c; playClick(600 + (3-c)*80,0.12); }
-    else { clearInterval(iv); countdownEl.style.display = 'none'; playClick(240,0.16); showFixation(); }
+    if (c>0){ countdownEl.textContent = c; }
+    else { clearInterval(iv); countdownEl.style.display = 'none'; showFixation(); }
   }, 1000);
 }
 
-/* Fixation then show color after ITI */
 function showFixation(){
   fixation.style.display = 'block';
   const fixDur = randBetween(CONFIG.fixationMsMin, CONFIG.fixationMsMax);
@@ -224,43 +184,34 @@ function showFixation(){
     fixation.style.display = 'none';
     const iti = randBetween(CONFIG.itiMinMs, CONFIG.itiMaxMs);
     setTimeout(showColor, iti);
-  }, randBetween(CONFIG.fixationMsMin, CONFIG.fixationMsMax));
+  }, fixDur);
 }
 
-/* Show stimulus */
 function showColor(){
-  if (trialIndex >= currentSeq.length) return endBlock();
+  if (trialIndex >= currentSeq.length) return finishExperiment();
   const cur = currentSeq[trialIndex];
   stim.style.backgroundColor = cur.color;
   stim.style.boxShadow = cur.glow;
   stim.style.display = 'block';
   trialCounter.style.display = 'block';
-  trialCounter.textContent = `${isPractice ? 'Practice' : 'Trial'} ${trialIndex+1} of ${currentSeq.length}`;
+  trialCounter.textContent = `Trial ${trialIndex+1} of ${currentSeq.length}`;
   tStimOn = performance.now();
   stimulusActive = true;
-  if (!startType && !isPractice) startType = cur.type; // record start type for main block
-  // safety timeout to mark lapse if no response
-  setTimeout(()=> {
-    if (stimulusActive){
-      recordReaction(true); // null response (lapse)
-    }
-  }, CONFIG.maxRT + 2000);
+
+  setTimeout(()=> { if (stimulusActive) recordReaction(true); }, CONFIG.maxRT + 2000);
 }
 
-/* Record reaction. If 'autoLapse' true => no response recorded (null) */
 function recordReaction(autoLapse=false){
-  if (!stimulusActive && !autoLapse) return; // ignore presses before stimulus
+  if (!stimulusActive && !autoLapse) return;
   const tNow = performance.now();
   const rt = autoLapse ? null : Math.round(tNow - tStimOn);
   const cur = currentSeq[Math.max(0, trialIndex)];
-  // If pressed before stimulusActive (premature), we ignore already above.
-  // Hide stimulus and log
+
   stim.style.display = 'none';
   stim.style.boxShadow = 'none';
   stimulusActive = false;
 
-  // log trial-level info
-  const entry = {
+  logs.push({
     participant: pidInput.value.trim(),
     seed: seedStr,
     startType: startType || null,
@@ -274,49 +225,22 @@ function recordReaction(autoLapse=false){
     rt_valid: (rt !== null && rt >= CONFIG.minRT && rt <= CONFIG.maxRT) ? 1 : 0,
     prev_type: trialIndex>0 ? currentSeq[trialIndex-1].type : null,
     userAgent: userAgentInfo()
-  };
-  logs.push(entry);
+  });
   trialIndex++;
-
-  // next: either next trial, or if practice done, switch to main, or finish
-  if (trialIndex < currentSeq.length) {
-    // short pause (fixation will handle)
-    showFixation();
-  } else {
-    endBlock();
-  }
+  if (trialIndex < currentSeq.length){ showFixation(); }
+  else { finishExperiment(); }
 }
 
-/* End of block (practice or main) */
-function endBlock(){
-  if (isPractice){
-    // switch to main
-    isPractice = false;
-    currentSeq = sequenceMain.slice();
-    trialIndex = 0;
-    msgEl.style.display = 'block';
-    msgEl.textContent = 'Practice complete. Main test will start now.';
-    setTimeout(()=> { msgEl.style.display='none'; showCountdown(); }, 1000);
-  } else {
-    // finished main block
-    finishExperiment();
-  }
-}
-
-/* Finish: compute summary, upload, show results + CSV fallback */
+/* ========== FINISH ========== */
 async function finishExperiment(){
-  // compute simple summaries (only main trials)
-  const mainLogs = logs.filter(l => l.type !== 'Practice');
-  const neonRTs = mainLogs.filter(l => l.type==='Neon' && l.rt_ms !== null && l.rt_valid).map(l => l.rt_ms);
-  const neutralRTs = mainLogs.filter(l => l.type==='Neutral' && l.rt_ms !== null && l.rt_valid).map(l => l.rt_ms);
+  const neonRTs = logs.filter(l => l.type==='Neon' && l.rt_ms!==null && l.rt_valid).map(l => l.rt_ms);
+  const neutralRTs = logs.filter(l => l.type==='Neutral' && l.rt_ms!==null && l.rt_valid).map(l => l.rt_ms);
   const mean = arr => arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : null;
   const avgNeon = mean(neonRTs), avgNeutral = mean(neutralRTs);
 
-  // count invalid rate
-  const invalidCount = mainLogs.filter(l => l.rt_valid===0 || l.rt_ms===null).length;
-  const invalidPct = invalidCount / mainLogs.length;
+  const invalidCount = logs.filter(l => l.rt_valid===0 || l.rt_ms===null).length;
+  const invalidPct = invalidCount / logs.length;
 
-  // prepare payload for upload
   const payload = {
     participant: pidInput.value.trim(),
     seed: seedStr,
@@ -326,38 +250,31 @@ async function finishExperiment(){
     avgNeutral: avgNeutral,
     invalidCount: invalidCount,
     invalidPct: invalidPct,
-    logs: mainLogs,
+    logs: logs,
     deviceInfo: userAgentInfo()
   };
 
-  // Try upload to Google Sheets endpoint
   statusEl.textContent = 'Uploading results...';
   const endpoint = CONFIG.GSHEET_ENDPOINT_URL;
   let uploaded = false;
   if (endpoint && endpoint.indexOf('YOUR_DEPLOYMENT_ID')<0){
     try {
       const resp = await fetch(endpoint, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify(payload)
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(payload)
       });
       const j = await resp.json();
-      if (resp.ok && j && j.result === 'success'){ uploaded = true; statusEl.textContent = 'Upload succeeded.'; }
-      else { statusEl.textContent = 'Upload returned non-success. Saved CSV fallback.'; }
-    } catch (err) {
-      console.warn('Upload failed', err);
-      statusEl.textContent = 'Upload failed (offline or endpoint error). Saved CSV fallback.';
-    }
-  } else {
-    statusEl.textContent = 'No GSHEET endpoint configured — CSV download available.';
-  }
+      if (resp.ok && j && j.result==='success'){ uploaded = true; statusEl.textContent='Upload succeeded.'; }
+      else { statusEl.textContent='Upload returned non-success. Saved CSV fallback.'; }
+    } catch(e){ statusEl.textContent='Upload failed (offline or endpoint error). Saved CSV fallback.'; }
+  } else { statusEl.textContent='No GSHEET endpoint configured — CSV download available.'; }
 
-  // Show results UI (no interpretation that biases future subjects)
   document.body.innerHTML = `
     <div style="padding:20px;">
       <h2>Results — Participant ${payload.participant}</h2>
       <p>Average Neon RT: ${avgNeon ?? 'N/A'} ms • Average Neutral RT: ${avgNeutral ?? 'N/A'} ms</p>
-      <p>Invalid trials: ${invalidCount} of ${mainLogs.length} (${Math.round(invalidPct*100)}%)</p>
+      <p>Invalid trials: ${invalidCount} of ${logs.length} (${Math.round(invalidPct*100)}%)</p>
       <div id="resTable"></div>
       <div style="margin-top:14px;">
         <button id="download">Download CSV</button>
@@ -366,17 +283,15 @@ async function finishExperiment(){
       <p style="font-size:13px;color:#666;margin-top:8px">${uploaded ? 'Results uploaded to Google Sheets.' : 'Results saved locally (CSV). You can upload later.'}</p>
     </div>
   `;
-  // render table
+
   const tableContainer = document.getElementById('resTable');
-  const rows = mainLogs.map(l => `<tr><td>${l.trialNum}</td><td>${l.type}</td><td>${l.colorName}</td><td>${l.rt_ms ?? ''}</td><td>${l.rt_valid}</td></tr>`).join('');
+  const rows = logs.map(l => `<tr><td>${l.trialNum}</td><td>${l.type}</td><td>${l.colorName}</td><td>${l.rt_ms ?? ''}</td><td>${l.rt_valid}</td></tr>`).join('');
   tableContainer.innerHTML = `<table style="margin:auto;border-collapse:collapse"><thead><tr><th>Trial</th><th>Type</th><th>Color</th><th>RT (ms)</th><th>Valid</th></tr></thead><tbody>${rows}</tbody></table>`;
 
-  // attach download + restart
   document.getElementById('download').addEventListener('click', ()=> downloadCSV(payload));
   document.getElementById('restart').addEventListener('click', ()=> location.reload());
 }
 
-/* CSV fallback */
 function downloadCSV(payload){
   const lines = [];
   lines.push(['participant','seed','startType','timestamp_finish','avgNeon','avgNeutral','invalidCount','invalidPct'].join(','));
@@ -395,27 +310,12 @@ function downloadCSV(payload){
   URL.revokeObjectURL(a.href);
 }
 
-/* play simple beep for countdown */
-function playClick(freq=600,dur=0.12){
-  try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-    o.connect(g); g.connect(audioCtx.destination);
-    o.frequency.value = freq; g.gain.setValueAtTime(0.12,audioCtx.currentTime);
-    o.start(); o.stop(audioCtx.currentTime + dur);
-  } catch (e) { /* ignore */ }
-}
-
-/* Handle key / touch input */
+/* ========== INPUT HANDLING ========== */
 document.addEventListener('keydown', e => {
-  if (e.code === 'Space'){ e.preventDefault(); if (stimulusActive) recordReaction(false); }
+  if (e.code==='Space'){ e.preventDefault(); if(stimulusActive) recordReaction(false); }
 });
-stim.addEventListener('click', () => { if (stimulusActive) recordReaction(false); });
-document.addEventListener('touchstart', (e) => {
-  // treat as tap; only register if stimulusActive to avoid premature
-  if (stimulusActive) { recordReaction(false); }
-}, {passive:true});
+stim.addEventListener('click', ()=>{ if(stimulusActive) recordReaction(false); });
+document.addEventListener('touchstart', e=>{ if(stimulusActive) recordReaction(false); }, {passive:true});
 
 </script>
 </body>
