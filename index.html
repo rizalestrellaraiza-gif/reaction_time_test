@@ -25,8 +25,7 @@
   <div id="container">
     <h1>🎨 Reaction Time Test</h1>
     <p>
-      You will see colors appear one at a time. <strong>Press SPACE or TAP</strong> the screen the moment you see the color.
-      <br>Please keep screen brightness steady and test in a well-lit room. Use a single device (no switching mid-test).
+      You will see colors appear one at a time. <strong>Press SPACE or TAP</strong> when you see a color.
     </p>
 
     <div style="margin-top:10px">
@@ -48,7 +47,7 @@
   <div id="stimulus" role="button" aria-label="Stimulus"></div>
 
 <script>
-/* ========== CONFIG ========== */
+/* CONFIG */
 const CONFIG = {
   repsPerColor: 2,
   maxSameTypeRun: 2,
@@ -58,11 +57,10 @@ const CONFIG = {
   itiMaxMs: 3000,
   minRT: 100,
   maxRT: 1500,
-  maxInvalidPct: 0.2,
   GSHEET_ENDPOINT_URL: 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'
 };
 
-/* ========== COLORS ========== */
+/* COLORS */
 const neonColors = [
   { id:'N1', name: 'Neon Yellow', color:'#FFFF00', glow:'0 0 150px #FFFF66', type:'Neon' },
   { id:'N2', name: 'Neon Pink',   color:'#FF00FF', glow:'0 0 150px #FF66FF', type:'Neon' },
@@ -74,7 +72,7 @@ const neutralColors = [
   { id:'U3', name: 'Light Brown', color:'#C4A484', glow:'none', type:'Neutral' }
 ];
 
-/* ========== DOM ========== */
+/* DOM */
 const startBtn = document.getElementById('start');
 const pidInput = document.getElementById('pid');
 const msgEl = document.getElementById('msg');
@@ -84,239 +82,129 @@ const trialCounter = document.getElementById('trialCounter');
 const fixation = document.getElementById('fixation');
 const stim = document.getElementById('stimulus');
 
-/* ========== STATE ========== */
-let sequenceMain = [];
-let currentSeq = [];
-let trialIndex = 0;
-let stimulusActive = false;
-let tStimOn = null;
-let logs = [];
-let seedStr = null;
-let startType = null;
-let audioCtx = null;
+/* STATE */
+let sequenceMain = [], currentSeq = [], trialIndex = 0, stimulusActive=false, tStimOn=null, logs=[], seedStr=null, startType=null, audioCtx=null;
 
-/* ========== UTILITIES ========== */
+/* UTILITIES */
 function randBetween(a,b){return a + Math.random()*(b-a);}
 function nowIso(){return (new Date()).toISOString();}
-function userAgentInfo(){ return {
-  ua: navigator.userAgent,
-  platform: navigator.platform,
-  screenW: screen.width, screenH: screen.height,
-  innerW: window.innerWidth, innerH: window.innerHeight,
-  dpr: window.devicePixelRatio || 1
-};}
-function seedFromString(s){
-  let h = 2166136261 >>> 0;
-  for (let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h += (h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24); }
-  return h >>> 0;
-}
-function mulberry32(a){ return function(){ var t = a += 0x6D2B79F5; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-function seededShuffle(arr, rng){
-  const a = arr.slice();
-  for (let i=a.length-1;i>0;i--){
-    const j = Math.floor(rng()*(i+1));
-    [a[i],a[j]] = [a[j],a[i]];
-  }
-  return a;
-}
+function userAgentInfo(){ return { ua:navigator.userAgent, platform:navigator.platform, screenW:screen.width, screenH:screen.height, innerW:window.innerWidth, innerH:window.innerHeight, dpr:window.devicePixelRatio||1 }; }
+function seedFromString(s){let h=2166136261>>>0;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h+=(h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24);}return h>>>0;}
+function mulberry32(a){return function(){var t=a+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296;}};
+function seededShuffle(arr,rng){const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 
-/* ========== MAIN SEQUENCE ========== */
-function buildBaseList(){
-  const list = [];
-  neonColors.forEach(c=> { for (let i=0;i<CONFIG.repsPerColor;i++) list.push({...c}); });
-  neutralColors.forEach(c=> { for (let i=0;i<CONFIG.repsPerColor;i++) list.push({...c}); });
-  return list;
-}
-function validMaxRun(seq, maxRun){
-  let runType=null, runLen=0;
-  for (let i=0;i<seq.length;i++){
-    const t = seq[i].type;
-    if (t===runType) runLen++; else { runType=t; runLen=1; }
-    if (runLen>maxRun) return false;
-  }
-  return true;
-}
-function generateSequence(seedVal=null){
-  const base = buildBaseList();
-  if (seedVal == null) seedStr = Math.random().toString(36).slice(2,10) + '|' + Date.now();
-  else seedStr = seedVal;
-  const seed = seedFromString(seedStr);
-  const rng = mulberry32(seed);
-  for (let attempt=0; attempt<2000; attempt++){
-    const s = seededShuffle(base, rng);
-    if (validMaxRun(s, CONFIG.maxSameTypeRun)) return s;
-  }
-  let s = seededShuffle(base, rng);
-  return s;
-}
+/* MAIN SEQUENCE */
+function buildBaseList(){const list=[]; neonColors.forEach(c=>{for(let i=0;i<CONFIG.repsPerColor;i++) list.push({...c});}); neutralColors.forEach(c=>{for(let i=0;i<CONFIG.repsPerColor;i++) list.push({...c});}); return list;}
+function validMaxRun(seq,maxRun){let runType=null,runLen=0;for(let i=0;i<seq.length;i++){const t=seq[i].type;if(t===runType) runLen++;else{runType=t;runLen=1;}if(runLen>maxRun)return false;}return true;}
+function generateSequence(seedVal=null){const base=buildBaseList(); if(seedVal==null) seedStr=Math.random().toString(36).slice(2,10)+'|'+Date.now(); else seedStr=seedVal; const seed=seedFromString(seedStr); const rng=mulberry32(seed); for(let attempt=0;attempt<2000;attempt++){const s=seededShuffle(base,rng); if(validMaxRun(s,CONFIG.maxSameTypeRun)) return s;} return seededShuffle(base,rng);}
 
-/* ========== UI FLOW ========== */
-startBtn.addEventListener('click', () => {
-  const pid = pidInput.value.trim();
-  if (!pid) { alert('Please enter Participant ID'); return; }
-  try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e){}
-  
-  sequenceMain = generateSequence();
-  currentSeq = sequenceMain.slice();
-  trialIndex = 0;
-  logs = [];
-  startType = null;
-
-  document.getElementById('container').style.display = 'none';
+/* UI FLOW */
+startBtn.addEventListener('click', ()=>{
+  const pid=pidInput.value.trim(); if(!pid){alert('Please enter Participant ID'); return;}
+  try{audioCtx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}
+  sequenceMain=generateSequence(); currentSeq=sequenceMain.slice(); trialIndex=0; logs=[]; startType=null;
+  document.getElementById('container').style.display='none';
   showCountdown();
 });
 
 function showCountdown(){
-  let c = 3;
-  countdownEl.style.display = 'block';
-  countdownEl.textContent = c;
-  const iv = setInterval(()=> {
-    c--;
-    if (c>0){ countdownEl.textContent = c; }
-    else { clearInterval(iv); countdownEl.style.display = 'none'; showFixation(); }
-  }, 1000);
+  let c=3; countdownEl.style.display='block'; countdownEl.textContent=c; playClick(600,0.12);
+  const iv=setInterval(()=>{
+    c--; if(c>0){ countdownEl.textContent=c; playClick(600+(3-c)*80,0.12);}
+    else{clearInterval(iv); countdownEl.style.display='none'; playClick(240,0.16); showFixation();}
+  },1000);
 }
 
 function showFixation(){
-  fixation.style.display = 'block';
-  const fixDur = randBetween(CONFIG.fixationMsMin, CONFIG.fixationMsMax);
-  setTimeout(()=> {
-    fixation.style.display = 'none';
-    const iti = randBetween(CONFIG.itiMinMs, CONFIG.itiMaxMs);
-    setTimeout(showColor, iti);
-  }, fixDur);
+  fixation.style.display='block';
+  const fixDur=randBetween(CONFIG.fixationMsMin,CONFIG.fixationMsMax);
+  setTimeout(()=>{ fixation.style.display='none'; setTimeout(showColor, randBetween(CONFIG.itiMinMs, CONFIG.itiMaxMs));}, fixDur);
 }
 
 function showColor(){
-  if (trialIndex >= currentSeq.length) return finishExperiment();
-  const cur = currentSeq[trialIndex];
-  stim.style.backgroundColor = cur.color;
-  stim.style.boxShadow = cur.glow;
-  stim.style.display = 'block';
-  trialCounter.style.display = 'block';
-  trialCounter.textContent = `Trial ${trialIndex+1} of ${currentSeq.length}`;
-  tStimOn = performance.now();
-  stimulusActive = true;
-
-  setTimeout(()=> { if (stimulusActive) recordReaction(true); }, CONFIG.maxRT + 2000);
+  if(trialIndex>=currentSeq.length) return finishExperiment();
+  const cur=currentSeq[trialIndex];
+  stim.style.backgroundColor=cur.color;
+  stim.style.boxShadow=cur.glow;
+  stim.style.display='block';
+  trialCounter.style.display='block';
+  trialCounter.textContent=`Trial ${trialIndex+1} of ${currentSeq.length}`;
+  tStimOn=performance.now(); stimulusActive=true;
+  setTimeout(()=>{ if(stimulusActive) recordReaction(true);}, CONFIG.maxRT+2000);
 }
 
 function recordReaction(autoLapse=false){
-  if (!stimulusActive && !autoLapse) return;
-  const tNow = performance.now();
-  const rt = autoLapse ? null : Math.round(tNow - tStimOn);
-  const cur = currentSeq[Math.max(0, trialIndex)];
-
-  stim.style.display = 'none';
-  stim.style.boxShadow = 'none';
-  stimulusActive = false;
-
-  logs.push({
-    participant: pidInput.value.trim(),
-    seed: seedStr,
-    startType: startType || null,
-    timestamp: nowIso(),
-    trialNum: trialIndex + 1,
-    type: cur.type,
-    id: cur.id || '',
-    colorName: cur.name,
-    colorHex: cur.color,
-    rt_ms: rt,
-    rt_valid: (rt !== null && rt >= CONFIG.minRT && rt <= CONFIG.maxRT) ? 1 : 0,
-    prev_type: trialIndex>0 ? currentSeq[trialIndex-1].type : null,
-    userAgent: userAgentInfo()
-  });
-  trialIndex++;
-  if (trialIndex < currentSeq.length){ showFixation(); }
-  else { finishExperiment(); }
+  if(!stimulusActive&&!autoLapse) return;
+  const tNow=performance.now();
+  const rt=autoLapse?null:Math.round(tNow-tStimOn);
+  const cur=currentSeq[Math.max(0,trialIndex)];
+  stim.style.display='none'; stim.style.boxShadow='none'; stimulusActive=false;
+  logs.push({participant:pidInput.value.trim(), seed:seedStr, startType:startType||null, timestamp:nowIso(), trialNum:trialIndex+1, type:cur.type, id:cur.id||'', colorName:cur.name, colorHex:cur.color, rt_ms:rt, rt_valid:(rt!==null && rt>=CONFIG.minRT && rt<=CONFIG.maxRT)?1:0, prev_type:trialIndex>0?currentSeq[trialIndex-1].type:null, userAgent:userAgentInfo()});
+  trialIndex++; if(trialIndex<currentSeq.length) showFixation(); else finishExperiment();
 }
 
-/* ========== FINISH ========== */
+/* FINISH */
 async function finishExperiment(){
-  const neonRTs = logs.filter(l => l.type==='Neon' && l.rt_ms!==null && l.rt_valid).map(l => l.rt_ms);
-  const neutralRTs = logs.filter(l => l.type==='Neutral' && l.rt_ms!==null && l.rt_valid).map(l => l.rt_ms);
-  const mean = arr => arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : null;
-  const avgNeon = mean(neonRTs), avgNeutral = mean(neutralRTs);
-
-  const invalidCount = logs.filter(l => l.rt_valid===0 || l.rt_ms===null).length;
-  const invalidPct = invalidCount / logs.length;
-
-  const payload = {
-    participant: pidInput.value.trim(),
-    seed: seedStr,
-    startType: startType,
-    timestamp_finish: nowIso(),
-    avgNeon: avgNeon,
-    avgNeutral: avgNeutral,
-    invalidCount: invalidCount,
-    invalidPct: invalidPct,
-    logs: logs,
-    deviceInfo: userAgentInfo()
-  };
-
-  statusEl.textContent = 'Uploading results...';
-  const endpoint = CONFIG.GSHEET_ENDPOINT_URL;
-  let uploaded = false;
-  if (endpoint && endpoint.indexOf('YOUR_DEPLOYMENT_ID')<0){
-    try {
-      const resp = await fetch(endpoint, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(payload)
-      });
-      const j = await resp.json();
-      if (resp.ok && j && j.result==='success'){ uploaded = true; statusEl.textContent='Upload succeeded.'; }
-      else { statusEl.textContent='Upload returned non-success. Saved CSV fallback.'; }
-    } catch(e){ statusEl.textContent='Upload failed (offline or endpoint error). Saved CSV fallback.'; }
-  } else { statusEl.textContent='No GSHEET endpoint configured — CSV download available.'; }
-
-  document.body.innerHTML = `
+  const neonRTs=logs.filter(l=>l.type==='Neon' && l.rt_ms!==null && l.rt_valid).map(l=>l.rt_ms);
+  const neutralRTs=logs.filter(l=>l.type==='Neutral' && l.rt_ms!==null && l.rt_valid).map(l=>l.rt_ms);
+  const mean=arr=>arr.length?Math.round(arr.reduce((a,b)=>a+b,0)/arr.length):null;
+  const avgNeon=mean(neonRTs), avgNeutral=mean(neutralRTs);
+  const invalidCount=logs.filter(l=>l.rt_valid===0||l.rt_ms===null).length;
+  const invalidPct=invalidCount/logs.length;
+  const payload={participant:pidInput.value.trim(), seed:seedStr, startType:startType, timestamp_finish:nowIso(), avgNeon, avgNeutral, invalidCount, invalidPct, logs, deviceInfo:userAgentInfo()};
+  statusEl.textContent='Uploading results...';
+  const endpoint=CONFIG.GSHEET_ENDPOINT_URL; let uploaded=false;
+  if(endpoint&&endpoint.indexOf('YOUR_DEPLOYMENT_ID')<0){
+    try{const resp=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+        const j=await resp.json(); if(resp.ok && j && j.result==='success'){uploaded=true; statusEl.textContent='Upload succeeded.';}
+        else{statusEl.textContent='Upload returned non-success. Saved CSV fallback.';}
+    }catch(e){statusEl.textContent='Upload failed (offline or endpoint error). Saved CSV fallback.';}
+  } else{statusEl.textContent='No GSHEET endpoint configured — CSV download available.';}
+  document.body.innerHTML=`
     <div style="padding:20px;">
       <h2>Results — Participant ${payload.participant}</h2>
-      <p>Average Neon RT: ${avgNeon ?? 'N/A'} ms • Average Neutral RT: ${avgNeutral ?? 'N/A'} ms</p>
+      <p>Average Neon RT: ${avgNeon??'N/A'} ms • Average Neutral RT: ${avgNeutral??'N/A'} ms</p>
       <p>Invalid trials: ${invalidCount} of ${logs.length} (${Math.round(invalidPct*100)}%)</p>
       <div id="resTable"></div>
       <div style="margin-top:14px;">
         <button id="download">Download CSV</button>
         <button id="restart" style="margin-left:12px">Restart</button>
       </div>
-      <p style="font-size:13px;color:#666;margin-top:8px">${uploaded ? 'Results uploaded to Google Sheets.' : 'Results saved locally (CSV). You can upload later.'}</p>
+      <p style="font-size:13px;color:#666;margin-top:8px">${uploaded?'Results uploaded to Google Sheets.':'Results saved locally (CSV). You can upload later.'}</p>
     </div>
   `;
-
-  const tableContainer = document.getElementById('resTable');
-  const rows = logs.map(l => `<tr><td>${l.trialNum}</td><td>${l.type}</td><td>${l.colorName}</td><td>${l.rt_ms ?? ''}</td><td>${l.rt_valid}</td></tr>`).join('');
-  tableContainer.innerHTML = `<table style="margin:auto;border-collapse:collapse"><thead><tr><th>Trial</th><th>Type</th><th>Color</th><th>RT (ms)</th><th>Valid</th></tr></thead><tbody>${rows}</tbody></table>`;
-
-  document.getElementById('download').addEventListener('click', ()=> downloadCSV(payload));
-  document.getElementById('restart').addEventListener('click', ()=> location.reload());
+  const tableContainer=document.getElementById('resTable');
+  const rows=logs.map(l=>`<tr><td>${l.trialNum}</td><td>${l.type}</td><td>${l.colorName}</td><td>${l.rt_ms??''}</td><td>${l.rt_valid}</td></tr>`).join('');
+  tableContainer.innerHTML=`<table style="margin:auto;border-collapse:collapse"><thead><tr><th>Trial</th><th>Type</th><th>Color</th><th>RT (ms)</th><th>Valid</th></tr></thead><tbody>${rows}</tbody></table>`;
+  document.getElementById('download').addEventListener('click',()=>downloadCSV(payload));
+  document.getElementById('restart').addEventListener('click',()=>location.reload());
 }
 
 function downloadCSV(payload){
-  const lines = [];
+  const lines=[];
   lines.push(['participant','seed','startType','timestamp_finish','avgNeon','avgNeutral','invalidCount','invalidPct'].join(','));
   lines.push([payload.participant,payload.seed,payload.startType,payload.timestamp_finish,payload.avgNeon,payload.avgNeutral,payload.invalidCount,payload.invalidPct].join(','));
-  lines.push('');
-  lines.push(['trialNum','type','id','colorName','colorHex','rt_ms','rt_valid','timestamp'].join(','));
-  payload.logs.forEach(l => {
-    lines.push([l.trialNum,l.type,l.id,l.colorName,l.colorHex,(l.rt_ms===null?'':l.rt_ms),l.rt_valid,l.timestamp].join(','));
-  });
-  const csv = lines.join('\n');
-  const a = document.createElement('a');
-  const blob = new Blob([csv], {type:'text/csv'});
-  a.href = URL.createObjectURL(blob);
-  a.download = `rt_${payload.participant}_${Date.now()}.csv`;
-  a.click();
-  URL.revokeObjectURL(a.href);
+  lines.push(''); lines.push(['trialNum','type','id','colorName','colorHex','rt_ms','rt_valid','timestamp'].join(','));
+  payload.logs.forEach(l=>lines.push([l.trialNum,l.type,l.id,l.colorName,l.colorHex,(l.rt_ms===null?'':l.rt_ms),l.rt_valid,l.timestamp].join(',')));
+  const csv=lines.join('\n'); const a=document.createElement('a'); const blob=new Blob([csv],{type:'text/csv'});
+  a.href=URL.createObjectURL(blob); a.download=`rt_${payload.participant}_${Date.now()}.csv`; a.click(); URL.revokeObjectURL(a.href);
 }
 
-/* ========== INPUT HANDLING ========== */
-document.addEventListener('keydown', e => {
-  if (e.code==='Space'){ e.preventDefault(); if(stimulusActive) recordReaction(false); }
-});
-stim.addEventListener('click', ()=>{ if(stimulusActive) recordReaction(false); });
-document.addEventListener('touchstart', e=>{ if(stimulusActive) recordReaction(false); }, {passive:true});
+/* SOUNDS */
+function playClick(freq=600,dur=0.12){
+  try{
+    if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    const o=audioCtx.createOscillator(); const g=audioCtx.createGain();
+    o.connect(g); g.connect(audioCtx.destination);
+    o.frequency.value=freq; g.gain.setValueAtTime(0.12,audioCtx.currentTime);
+    o.start(); o.stop(audioCtx.currentTime+dur);
+  }catch(e){}
+}
 
+/* INPUT */
+document.addEventListener('keydown', e=>{if(e.code==='Space'){e.preventDefault(); if(stimulusActive) recordReaction(false);}});
+stim.addEventListener('click', ()=>{if(stimulusActive) recordReaction(false);});
+document.addEventListener('touchstart', e=>{if(stimulusActive) recordReaction(false);}, {passive:true});
 </script>
 </body>
 </html>
