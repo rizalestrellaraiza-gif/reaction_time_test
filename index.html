@@ -53,10 +53,10 @@ const CONFIG = {
   maxSameTypeRun: 2,
   fixationMsMin: 800,
   fixationMsMax: 1200,
-  itiMinMs: 1000,
-  itiMaxMs: 3000,
+  itiMinMs: 1200,
+  itiMaxMs: 1800,
   minRT: 100,
-  maxRT: 1500,
+  maxRT: 2500, // increased RT window
   GSHEET_ENDPOINT_URL: 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'
 };
 
@@ -116,9 +116,21 @@ function showCountdown(){
 }
 
 function showFixation(){
-  fixation.style.display='block';
-  const fixDur=randBetween(CONFIG.fixationMsMin,CONFIG.fixationMsMax);
-  setTimeout(()=>{ fixation.style.display='none'; setTimeout(showColor, randBetween(CONFIG.itiMinMs, CONFIG.itiMaxMs));}, fixDur);
+  fixation.textContent = '+';
+  fixation.style.display = 'block';
+  
+  // Ready cue
+  msgEl.style.display = 'block';
+  msgEl.textContent = 'Get ready...';
+  
+  const fixDur = randBetween(CONFIG.fixationMsMin, CONFIG.fixationMsMax);
+  setTimeout(()=>{
+    fixation.style.display='none';
+    msgEl.style.display='none';
+    
+    const iti = randBetween(CONFIG.itiMinMs, CONFIG.itiMaxMs);  // narrowed ITI
+    setTimeout(showColor, iti);
+  }, fixDur);
 }
 
 function showColor(){
