@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Reaction Time Test (Research)</title>
+  <title>🎨 Reaction Time Test</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
     body{margin:0;font-family:Arial,Segoe UI,Helvetica,sans-serif;background:#fff;color:#111;text-align:center;overflow:hidden}
@@ -30,7 +30,7 @@
 
     <div style="margin-top:10px">
       <label for="pid">Participant ID</label><br>
-      <input id="pid" type="text" placeholder="e.g., RZ001" style="width:220px">
+      <input id="pid" type="text" placeholder="e.g., P001" style="width:220px">
     </div>
 
     <div style="margin-top:14px">
@@ -59,7 +59,6 @@ const CONFIG = {
   minRT: 100,
   maxRT: 1500,
   maxInvalidPct: 0.2,
-  // Put your Google Apps Script web app URL here:
   GSHEET_ENDPOINT_URL: 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'
 };
 
@@ -86,14 +85,14 @@ const fixation = document.getElementById('fixation');
 const stim = document.getElementById('stimulus');
 
 /* ========== STATE ========== */
-let sequenceMain = [];   
+let sequenceMain = [];
 let sequencePractice = [];
 let currentSeq = [];
 let isPractice = true;
 let trialIndex = 0;
 let stimulusActive = false;
 let tStimOn = null;
-let logs = [];           
+let logs = [];
 let seedStr = null;
 let startType = null;
 let audioCtx = null;
@@ -150,17 +149,8 @@ function generateSequence(seedVal=null){
     const s = seededShuffle(base, rng);
     if (validMaxRun(s, CONFIG.maxSameTypeRun)) return s;
   }
-  let s = seededShuffle(base, rng);
-  for (let iter=0; iter<5000; iter++){
-    if (validMaxRun(s, CONFIG.maxSameTypeRun)) return s;
-    for (let i=0;i<s.length-1;i++){
-      if (i>0 && s[i].type===s[i-1].type && s[i].type===s[i+1].type){
-        const j = s.findIndex((x,idx)=> x.type!==s[i].type && idx!==i);
-        if (j>0) { [s[i],s[j]] = [s[j],s[i]]; break; }
-      }
-    }
-  }
-  return s;
+  console.warn('Could not fully satisfy max-run; returning best-effort sequence');
+  return seededShuffle(base, rng);
 }
 
 function buildPractice(){
@@ -171,12 +161,11 @@ function buildPractice(){
   ];
 }
 
-/* ========== UI FLOW ========== */
 startBtn.addEventListener('click', () => {
   const pid = pidInput.value.trim();
   if (!pid) { alert('Please enter Participant ID'); return; }
   try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e){}
-  sequenceMain = generateSequence(); 
+  sequenceMain = generateSequence();
   sequencePractice = buildPractice();
   currentSeq = sequencePractice.slice();
   isPractice = true;
@@ -224,11 +213,7 @@ function showColor(){
   tStimOn = performance.now();
   stimulusActive = true;
   if (!startType && !isPractice) startType = cur.type;
-  setTimeout(()=> {
-    if (stimulusActive){
-      recordReaction(true);
-    }
-  }, CONFIG.maxRT + 2000);
+  setTimeout(()=> { if (stimulusActive){ recordReaction(true); } }, CONFIG.maxRT + 2000);
 }
 
 function recordReaction(autoLapse=false){
@@ -362,3 +347,14 @@ function playClick(freq=600,dur=0.12){
     o.start(); o.stop(audioCtx.currentTime + dur);
   } catch (e) { }
 }
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space'){ e.preventDefault(); if (stimulusActive) recordReaction(false); }
+});
+stim.addEventListener('click', () => { if (stimulusActive) recordReaction(false); });
+document.addEventListener('touchstart', (e) => { if (stimulusActive) record document.addEventListener('touchstart', (e) => { 
+  if (stimulusActive) recordReaction(false); 
+});
+</script>
+</body>
+</html>
