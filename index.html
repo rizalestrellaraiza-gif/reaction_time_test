@@ -17,20 +17,21 @@
       margin-top: 15vh;
     }
     h1 {
-      font-size: 36px;
+      font-size: 42px;
+      margin-bottom: 20px;
     }
     p {
-      font-size: 18px;
-      margin: 10px 15%;
-      line-height: 1.5em;
+      font-size: 22px;
+      margin: 10px 10%;
+      line-height: 1.6em;
     }
     #start, #ready {
       background-color: #007BFF;
       color: white;
       border: none;
-      padding: 15px 30px;
-      border-radius: 10px;
-      font-size: 20px;
+      padding: 20px 40px;
+      border-radius: 12px;
+      font-size: 22px;
       margin-top: 40px;
       cursor: pointer;
     }
@@ -45,16 +46,16 @@
       width: 100%;
       text-align: center;
       top: 40vh;
-      font-size: 80px;
+      font-size: 100px;
       display: none;
     }
     #trialCounter {
       top: 10px;
-      font-size: 22px;
+      font-size: 26px;
       color: gray;
     }
     #message {
-      font-size: 28px;
+      font-size: 36px;
       margin-top: 35vh;
       display: none;
     }
@@ -62,14 +63,15 @@
 </head>
 <body>
   <div id="container">
-    <h1>🎨 Neon vs Neutral Reaction Time Test</h1>
+    <h1>🎨 Reaction Time Test</h1>
     <p>
-      This test measures how quickly you can respond to different colors — <b>neon</b> (bright) and <b>neutral</b> (soft) tones.
       You’ll see colors appear one by one. Your task is simple:
+      <br><b>Press the SPACEBAR or TAP the screen the moment you see a color appear — as fast as you can!</b>
     </p>
-    <p><b>Press the SPACEBAR the moment you see a color appear — as fast as you can!</b></p>
-    <p>There will be 12 rounds in total — 6 neon and 6 neutral colors shown in random order.<br>
-       Some will appear faster or slower, so stay alert!</p>
+    <p>
+      There will be 12 rounds in total — 6 neon and 6 neutral colors shown in random order.<br>
+      Some will appear faster or slower, so stay alert!
+    </p>
     <button id="start">Start Reaction Test</button>
   </div>
 
@@ -90,9 +92,9 @@
 
     // 🔆 Super bright neon colors
     const neonColors = [
-      { name: 'Neon Yellow', color: '#FFFF00', glow: '0 0 100px #FFFF66', type: 'Neon' },
-      { name: 'Neon Pink', color: '#FF00FF', glow: '0 0 100px #FF66FF', type: 'Neon' },
-      { name: 'Neon Orange', color: '#FF5E00', glow: '0 0 100px #FF9933', type: 'Neon' }
+      { name: 'Neon Yellow', color: '#FFFF00', glow: '0 0 120px #FFFF66', type: 'Neon' },
+      { name: 'Neon Pink', color: '#FF00FF', glow: '0 0 120px #FF66FF', type: 'Neon' },
+      { name: 'Neon Orange', color: '#FF5E00', glow: '0 0 120px #FF9933', type: 'Neon' }
     ];
 
     // 🌫️ Neutral muted tones
@@ -108,9 +110,9 @@
     let trial = 0;
     let startTime;
     let results = [];
-    let stimulusActive = false; // ✅ tracks if color is shown
+    let stimulusActive = false;
 
-    // Audio for countdown
+    // Sound
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function playBeep(freq, dur) {
       const osc = audioCtx.createOscillator();
@@ -127,7 +129,7 @@
 
     // Random varied interval
     function randomDelay() {
-      const delays = [600, 1000, 1500, 2200, 3000, 3500];
+      const delays = [400, 800, 1200, 2000, 2600, 3200];
       return delays[Math.floor(Math.random() * delays.length)];
     }
 
@@ -166,7 +168,6 @@
 
     function recordReaction() {
       if (!stimulusActive) return;
-
       const rt = performance.now() - startTime;
       results.push({
         trial: trial + 1,
@@ -174,12 +175,10 @@
         color: allTrials[trial].name,
         reaction_time: Math.round(rt)
       });
-
       stim.style.display = 'none';
       stim.style.boxShadow = 'none';
       stimulusActive = false;
       trial++;
-
       if (trial < allTrials.length) {
         setTimeout(showColor, randomDelay());
       } else {
@@ -207,20 +206,20 @@
       }
 
       document.body.innerHTML = `
-        <h2>Reaction Time Results</h2>
-        <table border='1' style='margin:auto;border-collapse:collapse;color:black;'>
+        <h2 style="font-size:36px;">Reaction Time Results</h2>
+        <table border='1' style='margin:auto;border-collapse:collapse;color:black;font-size:20px;'>
           <tr><th>Trial</th><th>Type</th><th>Color</th><th>Reaction Time (ms)</th></tr>
           ${results.map(r =>
             `<tr><td>${r.trial}</td><td>${r.type}</td><td>${r.color}</td><td>${r.reaction_time}</td></tr>`
           ).join('')}
         </table>
-        <h3>Average Reaction Time</h3>
-        <p>Neon Colors: ${avgNeon} ms</p>
-        <p>Neutral Colors: ${avgNeutral} ms</p>
+        <h3 style="margin-top:20px;">Average Reaction Time</h3>
+        <p style="font-size:22px;">Neon Colors: ${avgNeon} ms</p>
+        <p style="font-size:22px;">Neutral Colors: ${avgNeutral} ms</p>
         <h3>Interpretation</h3>
-        <p>${interpretation}</p>
+        <p style="font-size:20px;">${interpretation}</p>
         <p style="margin-top:20px;color:gray;">Thank you for participating!</p>
-        <button onclick="location.reload()">Restart Test</button>
+        <button onclick="location.reload()" style="padding:15px 30px;font-size:20px;border-radius:10px;">Restart Test</button>
       `;
     }
 
@@ -238,13 +237,15 @@
       showCountdown();
     });
 
-    // Spacebar for reaction
+    // Allow SPACEBAR or TAP for both laptop and phone
     document.addEventListener('keydown', (e) => {
       if (e.code === 'Space') {
         e.preventDefault();
         recordReaction();
       }
     });
+
+    stim.addEventListener('click', recordReaction);
   </script>
 </body>
 </html>
