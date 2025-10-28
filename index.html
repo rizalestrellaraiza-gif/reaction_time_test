@@ -7,25 +7,38 @@
     body {
       margin: 0;
       padding: 0;
-      background-color: black;
-      color: white;
+      background-color: white;
+      color: black;
       font-family: Arial, sans-serif;
       text-align: center;
       overflow: hidden;
     }
+    #container {
+      margin-top: 15vh;
+    }
+    h1 {
+      font-size: 36px;
+    }
+    p {
+      font-size: 18px;
+      margin: 10px 15%;
+      line-height: 1.5em;
+    }
     #start, #ready {
-      background-color: #2e86de;
+      background-color: #007BFF;
       color: white;
       border: none;
       padding: 15px 30px;
       border-radius: 10px;
       font-size: 20px;
-      margin-top: 40vh;
+      margin-top: 40px;
+      cursor: pointer;
     }
     #stimulus {
       width: 100vw;
       height: 100vh;
       display: none;
+      transition: background-color 0.2s;
     }
     #countdown, #trialCounter {
       position: absolute;
@@ -38,7 +51,7 @@
     #trialCounter {
       top: 10px;
       font-size: 22px;
-      color: #ccc;
+      color: gray;
     }
     #message {
       font-size: 28px;
@@ -48,7 +61,18 @@
   </style>
 </head>
 <body>
-  <button id="start">Start Reaction Test</button>
+  <div id="container">
+    <h1>🎨 Neon vs Neutral Reaction Time Test</h1>
+    <p>
+      This test measures how quickly you can respond to different colors — <b>neon</b> (bright) and <b>neutral</b> (soft) tones.
+      You’ll see colors appear one by one. Your task is simple:
+    </p>
+    <p><b>Press the SPACEBAR the moment you see a color appear — as fast as you can!</b></p>
+    <p>There will be 12 rounds in total — 6 neon and 6 neutral colors shown in random order.<br>
+       Some will appear faster or slower, so stay alert!</p>
+    <button id="start">Start Reaction Test</button>
+  </div>
+
   <div id="message">Are you ready?</div>
   <button id="ready" style="display:none;">I’m Ready!</button>
   <div id="countdown"></div>
@@ -56,6 +80,7 @@
   <div id="stimulus"></div>
 
   <script>
+    const container = document.getElementById('container');
     const startBtn = document.getElementById('start');
     const readyBtn = document.getElementById('ready');
     const msg = document.getElementById('message');
@@ -63,27 +88,29 @@
     const trialCounter = document.getElementById('trialCounter');
     const stim = document.getElementById('stimulus');
 
-    // 🎨 Color sets
+    // 🔆 Super bright neon colors
     const neonColors = [
-      { name: 'Neon Yellow', color: '#FFFF33', glow: '0 0 60px #FFFF66', type: 'Neon' },
-      { name: 'Neon Pink', color: '#FF00FF', glow: '0 0 60px #FF66FF', type: 'Neon' },
-      { name: 'Neon Orange', color: '#FF5F1F', glow: '0 0 60px #FF884D', type: 'Neon' }
+      { name: 'Neon Yellow', color: '#FFFF00', glow: '0 0 100px #FFFF66', type: 'Neon' },
+      { name: 'Neon Pink', color: '#FF00FF', glow: '0 0 100px #FF66FF', type: 'Neon' },
+      { name: 'Neon Orange', color: '#FF5E00', glow: '0 0 100px #FF9933', type: 'Neon' }
     ];
 
+    // 🌫️ Neutral muted tones
     const neutralColors = [
-      { name: 'Beige', color: '#D8CAB8', glow: 'none', type: 'Neutral' },
-      { name: 'Gray', color: '#8C8C8C', glow: 'none', type: 'Neutral' },
-      { name: 'Light Brown', color: '#B6957A', glow: 'none', type: 'Neutral' }
+      { name: 'Beige', color: '#E6D8B3', glow: 'none', type: 'Neutral' },
+      { name: 'Gray', color: '#B0B0B0', glow: 'none', type: 'Neutral' },
+      { name: 'Light Brown', color: '#C4A484', glow: 'none', type: 'Neutral' }
     ];
 
-    // Two sets (total 12 trials)
+    // Combine twice for reliability
     let allTrials = [...neonColors, ...neutralColors, ...neonColors, ...neutralColors]
       .sort(() => Math.random() - 0.5);
-    
     let trial = 0;
     let startTime;
     let results = [];
+    let stimulusActive = false; // ✅ tracks if color is shown
 
+    // Audio for countdown
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function playBeep(freq, dur) {
       const osc = audioCtx.createOscillator();
@@ -92,14 +119,16 @@
       gain.connect(audioCtx.destination);
       osc.type = 'sine';
       osc.frequency.value = freq;
-      osc.start();
       gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+      osc.start();
       osc.stop(audioCtx.currentTime + dur);
     }
 
-    function randomDelay(min, max) {
-      return Math.random() * (max - min) + min;
+    // Random varied interval
+    function randomDelay() {
+      const delays = [600, 1000, 1500, 2200, 3000, 3500];
+      return delays[Math.floor(Math.random() * delays.length)];
     }
 
     function showCountdown() {
@@ -122,8 +151,7 @@
     }
 
     function showColor() {
-      // Random delay before color shows up
-      const delay = randomDelay(1000, 4000);
+      const delay = randomDelay();
       setTimeout(() => {
         const current = allTrials[trial];
         stim.style.backgroundColor = current.color;
@@ -132,10 +160,13 @@
         trialCounter.textContent = `Trial ${trial + 1} of ${allTrials.length}`;
         trialCounter.style.display = 'block';
         startTime = performance.now();
+        stimulusActive = true;
       }, delay);
     }
 
-    function nextTrial() {
+    function recordReaction() {
+      if (!stimulusActive) return;
+
       const rt = performance.now() - startTime;
       results.push({
         trial: trial + 1,
@@ -146,12 +177,11 @@
 
       stim.style.display = 'none';
       stim.style.boxShadow = 'none';
+      stimulusActive = false;
       trial++;
 
-      // 12 trials guaranteed to appear
       if (trial < allTrials.length) {
-        const nextDelay = randomDelay(1200, 4000);
-        setTimeout(showColor, nextDelay);
+        setTimeout(showColor, randomDelay());
       } else {
         showResults();
       }
@@ -160,31 +190,43 @@
     function showResults() {
       stim.style.display = 'none';
       trialCounter.style.display = 'none';
-
       const neonRT = results.filter(r => r.type === 'Neon').map(r => r.reaction_time);
       const neutralRT = results.filter(r => r.type === 'Neutral').map(r => r.reaction_time);
       const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
 
+      const avgNeon = Math.round(avg(neonRT));
+      const avgNeutral = Math.round(avg(neutralRT));
+
+      let interpretation = "";
+      if (avgNeon < avgNeutral) {
+        interpretation = "You reacted faster to <b>Neon colors</b> than Neutral colors. This suggests that bright, vivid colors tend to attract your attention more quickly.";
+      } else if (avgNeon > avgNeutral) {
+        interpretation = "You reacted faster to <b>Neutral colors</b> than Neon colors. This may indicate that softer tones help you maintain better focus or reduce visual overstimulation.";
+      } else {
+        interpretation = "Your reaction times for Neon and Neutral colors are almost the same, suggesting that color brightness did not significantly affect your response speed.";
+      }
+
       document.body.innerHTML = `
         <h2>Reaction Time Results</h2>
-        <table border='1' style='margin:auto;color:white;border-collapse:collapse;'>
+        <table border='1' style='margin:auto;border-collapse:collapse;color:black;'>
           <tr><th>Trial</th><th>Type</th><th>Color</th><th>Reaction Time (ms)</th></tr>
-          ${results.map(r => `<tr>
-            <td>${r.trial}</td>
-            <td>${r.type}</td>
-            <td>${r.color}</td>
-            <td>${r.reaction_time}</td>
-          </tr>`).join('')}
+          ${results.map(r =>
+            `<tr><td>${r.trial}</td><td>${r.type}</td><td>${r.color}</td><td>${r.reaction_time}</td></tr>`
+          ).join('')}
         </table>
         <h3>Average Reaction Time</h3>
-        <p>Neon Colors: ${Math.round(avg(neonRT))} ms</p>
-        <p>Neutral Colors: ${Math.round(avg(neutralRT))} ms</p>
+        <p>Neon Colors: ${avgNeon} ms</p>
+        <p>Neutral Colors: ${avgNeutral} ms</p>
+        <h3>Interpretation</h3>
+        <p>${interpretation}</p>
+        <p style="margin-top:20px;color:gray;">Thank you for participating!</p>
         <button onclick="location.reload()">Restart Test</button>
       `;
     }
 
+    // Start & Ready logic
     startBtn.addEventListener('click', () => {
-      startBtn.style.display = 'none';
+      container.style.display = 'none';
       msg.style.display = 'block';
       readyBtn.style.display = 'inline-block';
     });
@@ -192,12 +234,17 @@
     readyBtn.addEventListener('click', () => {
       msg.style.display = 'none';
       readyBtn.style.display = 'none';
-      alert("Tap the screen as soon as the color appears!");
       audioCtx.resume();
       showCountdown();
     });
 
-    stim.addEventListener('click', nextTrial);
+    // Spacebar for reaction
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        recordReaction();
+      }
+    });
   </script>
 </body>
 </html>
