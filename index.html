@@ -7,19 +7,20 @@
 <style>
 body{margin:0;font-family:Arial,Segoe UI,Helvetica,sans-serif;background:#fff;color:#111;text-align:center;overflow:hidden}
 #container{padding:4vh 6%;margin-top:6vh}
-h1{font-size:36px;margin-bottom:8px}
 input,button{font-size:18px;padding:10px;border-radius:8px}
 #start,#download{background:#007bff;color:#fff;border:0;padding:14px 30px;margin-top:12px;cursor:pointer}
 #stimulus,#fixation{position:absolute;top:0;left:0;width:100vw;height:100vh;display:none;z-index:1000;transition:background 0.12s}
 #fixation{font-size:90px;text-align:center;line-height:100vh}
-#countdown,#trialCounter{position:absolute;width:100%;text-align:center;top:40vh;font-size:80px;display:none}
-#trialCounter{top:10px;font-size:22px;color:gray}
+#trialCounter{position:absolute;width:100%;text-align:center;top:10px;font-size:22px;color:gray}
+table{margin:auto;border-collapse:collapse;margin-top:14px}
+th,td{padding:8px;border:1px solid #ddd;text-align:center}
 </style>
 </head>
 <body>
 
 <div id="container">
-<h1>🎨 Reaction Time Test</h1>
+<h1>Reaction Time Test</h1>
+<p>Tap the space bar (or tap the screen) as soon as you see the color appear.</p>
 <div style="margin-top:10px">
 <label for="pid">Participant ID</label><br>
 <input id="pid" type="text" placeholder="e.g., P001" style="width:220px">
@@ -29,20 +30,15 @@ input,button{font-size:18px;padding:10px;border-radius:8px}
 </div>
 </div>
 
-<div id="countdown"></div>
 <div id="trialCounter"></div>
 <div id="fixation">+</div>
 <div id="stimulus" role="button" aria-label="Stimulus"></div>
 
 <script>
-/* =========================
-   CONFIGURATION
-   ========================= */
-const CONFIG={repsPerColor:2,maxSameTypeRun:2,fixationMsMin:800,fixationMsMax:1200,itiMinMs:1000,itiMaxMs:3000};
+/* ================= CONFIG ================= */
+const CONFIG={repsPerColor:2,fixationMsMin:800,fixationMsMax:1200,itiMinMs:1000,itiMaxMs:3000,maxSameTypeRun:1};
 
-/* =========================
-   COLORS
-   ========================= */
+/* ================= COLORS ================= */
 const neonColors=[
   {id:'N1',name:'Neon Yellow',color:'#FFFF00',glow:'0 0 150px #FFFF66',type:'Neon'},
   {id:'N2',name:'Neon Pink',color:'#FF00FF',glow:'0 0 150px #FF66FF',type:'Neon'},
@@ -54,201 +50,111 @@ const neutralColors=[
   {id:'U3',name:'Light Brown',color:'#C4A484',glow:'none',type:'Neutral'}
 ];
 
-/* =========================
-   DOM ELEMENTS & STATE
-   ========================= */
+/* ================= DOM & STATE ================= */
 const startBtn=document.getElementById('start');
 const pidInput=document.getElementById('pid');
-const countdownEl=document.getElementById('countdown');
 const trialCounter=document.getElementById('trialCounter');
 const fixation=document.getElementById('fixation');
 const stim=document.getElementById('stimulus');
 
 let sequenceMain=[],sequencePractice=[],currentSeq=[];
-let isPractice=true,trialIndex=0,stimulusActive=false,tStimOn=null,logs=[],startType=null;
+let isPractice=true,trialIndex=0,stimulusActive=false,tStimOn=null,logs=[],startType=null,audioCtx=null;
 
-/* =========================
-   UTILITIES
-   ========================= */
+/* ================= UTILITIES ================= */
 function randBetween(a,b){return a+Math.random()*(b-a);}
 function nowIso(){return(new Date()).toISOString();}
-function seededShuffle(arr){
-  const a=arr.slice();
-  for(let i=a.length-1;i>0;i--){
-    const j=Math.floor(Math.random()*(i+1));
-    [a[i],a[j]]=[a[j],a[i]];
-  }
-  return a;
-}
-function validMaxRun(seq,maxRun){
-  let runType=null,runLen=0;
-  for(let i=0;i<seq.length;i++){
-    const t=seq[i].type;
-    if(t===runType) runLen++; else {runType=t; runLen=1;}
-    if(runLen>maxRun) return false;
-  }
-  return true;
-}
+function seededShuffle(arr){const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function validMaxRun(seq,maxRun){let runType=null,runLen=0;for(let i=0;i<seq.length;i++){const t=seq[i].type;if(t===runType) runLen++; else {runType=t; runLen=1;}if(runLen>maxRun) return false;}return true;}
+function buildBaseList(){const list=[];neonColors.forEach(c=>{for(let i=0;i<CONFIG.repsPerColor;i++)list.push({...c});});neutralColors.forEach(c=>{for(let i=0;i<CONFIG.repsPerColor;i++)list.push({...c});});return list;}
+function generateSequence(){const base=buildBaseList();for(let attempt=0;attempt<1000;attempt++){let seq=seededShuffle(base);if(validMaxRun(seq,CONFIG.maxSameTypeRun))return seq;}return base;}
+function buildPractice(){return [{id:'P1',name:'Practice Blue',color:'#2E6CE6',glow:'0 0 80px #6EA0FF',type:'Practice'},{id:'P2',name:'Practice Red',color:'#E63C3C',glow:'0 0 80px #FF7F7F',type:'Practice'},{id:'P3',name:'Practice Green',color:'#29C74F',glow:'0 0 80px #7DFF95',type:'Practice'}];}
 
-/* =========================
-   SEQUENCE GENERATION
-   ========================= */
-function buildBaseList(){
-  const list=[];
-  neonColors.forEach(c=>{for(let i=0;i<CONFIG.repsPerColor;i++) list.push({...c});});
-  neutralColors.forEach(c=>{for(let i=0;i<CONFIG.repsPerColor;i++) list.push({...c});});
-  return list;
-}
+/* ================= AUDIO BEEP ================= */
+function playBeep(freq=600,dur=0.12){try{if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();const o=audioCtx.createOscillator();const g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.frequency.value=freq;g.gain.setValueAtTime(0.12,audioCtx.currentTime);o.start();o.stop(audioCtx.currentTime+dur);}catch(e){}}
 
-function generateSequence(startType){
-  let base=buildBaseList();
-  for(let attempt=0;attempt<1000;attempt++){
-    let seq=seededShuffle(base);
-    if(validMaxRun(seq,CONFIG.maxSameTypeRun)){
-      // order control for first block
-      if(startType==='Neon') seq.sort((a,b)=>a.type==='Neon'&&b.type==='Neutral'?-1:1);
-      else seq.sort((a,b)=>a.type==='Neutral'&&b.type==='Neon'?-1:1);
-      return seq;
-    }
-  }
-  return base;
-}
-
-function buildPractice(){
-  return [
-    {id:'P1',name:'Practice Blue',color:'#2E6CE6',glow:'0 0 80px #6EA0FF',type:'Practice'},
-    {id:'P2',name:'Practice Red',color:'#E63C3C',glow:'0 0 80px #FF7F7F',type:'Practice'},
-    {id:'P3',name:'Practice Green',color:'#29C74F',glow:'0 0 80px #7DFF95',type:'Practice'}
-  ];
-}
-
-/* =========================
-   START BUTTON
-   ========================= */
+/* ================= START ================= */
 startBtn.addEventListener('click',()=>{
-  const pid = pidInput.value.trim();
-  if(!pid){alert('Please enter Participant ID'); return;}
+  const pid=pidInput.value.trim(); if(!pid){alert('Please enter Participant ID'); return;}
   const num=parseInt(pid.replace(/\D/g,''))||Math.floor(Math.random()*100);
   startType=(num%2===0)?'Neon':'Neutral';
-
-  sequenceMain=generateSequence(startType);
+  sequenceMain=generateSequence();
   sequencePractice=buildPractice();
   currentSeq=sequencePractice.slice();
   isPractice=true; trialIndex=0; logs=[];
-
-  // hide container immediately
   document.getElementById('container').style.display='none';
-
-  // direct start countdown
-  showCountdown();
+  showCountdown(3);
 });
 
-/* =========================
-   COUNTDOWN & TRIAL FLOW
-   ========================= */
-function showCountdown(){
-  let c=3; countdownEl.style.display='block'; countdownEl.textContent=c;
-  const iv=setInterval(()=>{
-    c--;
-    if(c>0){ countdownEl.textContent=c; }
-    else { clearInterval(iv); countdownEl.style.display='none'; showFixation(); }
-  },1000);
+/* ================= COUNTDOWN ================= */
+function showCountdown(n){
+  if(n===0){showFixation();return;}
+  trialCounter.style.display='block';
+  trialCounter.textContent=n;
+  playBeep();
+  setTimeout(()=>showCountdown(n-1),1000);
 }
 
+/* ================= TRIAL FLOW ================= */
 function showFixation(){
   fixation.style.display='block';
-  setTimeout(()=>{
-    fixation.style.display='none';
-    setTimeout(showColor, randBetween(CONFIG.itiMinMs,CONFIG.itiMaxMs));
-  }, randBetween(CONFIG.fixationMsMin,CONFIG.fixationMsMax));
+  setTimeout(()=>{fixation.style.display='none'; setTimeout(showColor,randBetween(CONFIG.itiMinMs,CONFIG.itiMaxMs));},randBetween(CONFIG.fixationMsMin,CONFIG.fixationMsMax));
 }
-
 function showColor(){
-  if(trialIndex>=currentSeq.length) return endBlock();
+  if(trialIndex>=currentSeq.length)return endBlock();
   const cur=currentSeq[trialIndex];
   stim.style.backgroundColor=cur.color;
   stim.style.boxShadow=cur.glow;
   stim.style.display='block';
-  trialCounter.style.display='block';
   trialCounter.textContent=`${isPractice?'Practice':'Trial'} ${trialIndex+1} of ${currentSeq.length}`;
-  tStimOn=performance.now();
-  stimulusActive=true;
+  tStimOn=performance.now(); stimulusActive=true;
 }
-
 function recordReaction(){
-  if(!stimulusActive) return;
-  const tNow=performance.now();
-  const rt=Math.round(tNow-tStimOn);
-  const cur=currentSeq[trialIndex];
-  stim.style.display='none'; stim.style.boxShadow='none'; stimulusActive=false;
-
+  if(!stimulusActive)return;
+  const tNow=performance.now(); const rt=Math.round(tNow-tStimOn);
+  const cur=currentSeq[trialIndex]; stim.style.display='none'; stim.style.boxShadow='none'; stimulusActive=false;
   logs.push({participant:pidInput.value.trim(),timestamp:nowIso(),trialNum:trialIndex+1,type:cur.type,colorName:cur.name,rt_ms:rt});
-
-  trialIndex++;
-  if(trialIndex<currentSeq.length) showFixation();
-  else endBlock();
+  trialIndex++; if(trialIndex<currentSeq.length)showFixation(); else endBlock();
 }
-
 function endBlock(){
-  if(isPractice){
-    isPractice=false;
-    currentSeq=sequenceMain.slice();
-    trialIndex=0;
-    showCountdown();
-  } else finishExperiment();
+  if(isPractice){isPractice=false;currentSeq=sequenceMain.slice();trialIndex=0;showCountdown(3);}
+  else finishExperiment();
 }
 
-/* =========================
-   FINISH & CSV
-   ========================= */
+/* ================= FINISH & CSV ================= */
 function finishExperiment(){
   const mainLogs=logs.filter(l=>l.type!=='Practice');
   const neonRTs=mainLogs.filter(l=>l.type==='Neon').map(l=>l.rt_ms);
   const neutralRTs=mainLogs.filter(l=>l.type==='Neutral').map(l=>l.rt_ms);
   const mean=(arr)=>arr.length?Math.round(arr.reduce((a,b)=>a+b,0)/arr.length):null;
   const avgNeon=mean(neonRTs), avgNeutral=mean(neutralRTs);
-
+  let tableRows=mainLogs.map(l=>`<tr><td>${l.trialNum}</td><td>${l.type}</td><td>${l.colorName}</td><td>${l.rt_ms}</td></tr>`).join('');
   document.body.innerHTML=`
     <div style="padding:20px;">
       <h2>Results — Participant ${pidInput.value.trim()}</h2>
       <p>Average Neon RT: ${avgNeon} ms • Average Neutral RT: ${avgNeutral} ms</p>
+      <table>
+        <thead><tr><th>Trial</th><th>Type</th><th>Color</th><th>RT (ms)</th></tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
       <button id="download">Download CSV</button>
       <button id="restart" style="margin-left:12px">Restart</button>
-      <section style="padding:20px;text-align:left;max-width:800px;margin:auto;color:#333;">
-        <h3>Research Notes — Bias Control Summary</h3>
-        <ul>
-          <li>Order Bias: 10 participants start Neon, 10 start Neutral.</li>
-          <li>Practice block reduces learning effects.</li>
-          <li>Random ITI/fixation reduces anticipation/fatigue effects.</li>
-          <li>Randomized sequence via shuffle.</li>
-          <li>Self-paced: no invalid trials.</li>
-        </ul>
-      </section>
     </div>`;
-
   document.getElementById('download').addEventListener('click',()=>downloadCSV(mainLogs,avgNeon,avgNeutral));
   document.getElementById('restart').addEventListener('click',()=>location.reload());
 }
-
 function downloadCSV(logs,avgNeon,avgNeutral){
   const participant=pidInput.value.trim();
   const timestamp_finish=nowIso();
   const neonRTs=logs.filter(l=>l.type==='Neon').map(l=>l.rt_ms).join(';');
   const neutralRTs=logs.filter(l=>l.type==='Neutral').map(l=>l.rt_ms).join(';');
   const lines=[];
-  lines.push(['participant','timestamp_finish','avgNeon','avgNeutral','neonRTs','neutralRTs'].join(','));
-  lines.push([participant,timestamp_finish,avgNeon,avgNeutral,`"${neonRTs}"`,`"${neutralRTs}"`].join(','));
+  lines.push(['participant','timestamp_finish','neonRTs','neutralRTs','avgNeon','avgNeutral'].join(','));
+  lines.push([participant,timestamp_finish,`"${neonRTs}"`,`"${neutralRTs}"`,avgNeon,avgNeutral].join(','));
   const csv=lines.join('\n');
-  const a=document.createElement('a');
-  const blob=new Blob([csv],{type:'text/csv'});
-  a.href=URL.createObjectURL(blob);
-  a.download=`rt_summary_${participant}_${Date.now()}.csv`;
-  a.click();
+  const a=document.createElement('a'); const blob=new Blob([csv],{type:'text/csv'}); a.href=URL.createObjectURL(blob); a.download=`rt_summary_${participant}_${Date.now()}.csv`; a.click();
 }
 
-/* =========================
-   INPUT HANDLING
-   ========================= */
+/* ================= INPUT ================= */
 document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();recordReaction();}});
 stim.addEventListener('click',()=>recordReaction());
 document.addEventListener('touchstart',()=>recordReaction(),{passive:true});
