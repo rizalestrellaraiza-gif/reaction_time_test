@@ -9,8 +9,9 @@ body{margin:0;font-family:Arial,Segoe UI,Helvetica,sans-serif;background:#fff;co
 #container{padding:4vh 6%;margin-top:6vh}
 input,button{font-size:18px;padding:10px;border-radius:8px}
 #start,#download{background:#007bff;color:#fff;border:0;padding:14px 30px;margin-top:12px;cursor:pointer}
-#stimulus,#fixation{position:absolute;top:0;left:0;width:100vw;height:100vh;display:none;z-index:1000;transition:background 0.12s}
+#stimulus,#fixation,#countdown{position:absolute;top:0;left:0;width:100vw;height:100vh;display:none;z-index:1000;transition:background 0.12s}
 #fixation{font-size:90px;text-align:center;line-height:100vh}
+#countdown{font-size:120px;text-align:center;line-height:100vh;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2000}
 #trialCounter{position:absolute;width:100%;text-align:center;top:10px;font-size:22px;color:gray}
 table{margin:auto;border-collapse:collapse;margin-top:14px}
 th,td{padding:8px;border:1px solid #ddd;text-align:center}
@@ -20,7 +21,7 @@ th,td{padding:8px;border:1px solid #ddd;text-align:center}
 
 <div id="container">
 <h1>Reaction Time Test</h1>
-<p>Tap the space bar (or tap the screen) as soon as you see the color appear.</p>
+<p><strong>Tap the space bar (or tap the screen)</strong> as soon as you see the color appear.</p>
 <div style="margin-top:10px">
 <label for="pid">Participant ID</label><br>
 <input id="pid" type="text" placeholder="e.g., P001" style="width:220px">
@@ -32,11 +33,12 @@ th,td{padding:8px;border:1px solid #ddd;text-align:center}
 
 <div id="trialCounter"></div>
 <div id="fixation">+</div>
-<div id="stimulus" role="button" aria-label="Stimulus"></div>
+<div id="countdown"></div>
+<div id="stimulus" role="button" aria-label="Stimulus" style="cursor:pointer"></div>
 
 <script>
 /* ================= CONFIG ================= */
-const CONFIG={repsPerColor:2,fixationMsMin:800,fixationMsMax:1200,itiMinMs:1000,itiMaxMs:3000,maxSameTypeRun:1};
+const CONFIG={repsPerColor:2,fixationMsMin:700,fixationMsMax:1500,itiMinMs:800,itiMaxMs:2500,maxSameTypeRun:1};
 
 /* ================= COLORS ================= */
 const neonColors=[
@@ -55,10 +57,10 @@ const startBtn=document.getElementById('start');
 const pidInput=document.getElementById('pid');
 const trialCounter=document.getElementById('trialCounter');
 const fixation=document.getElementById('fixation');
+const countdownEl=document.getElementById('countdown');
 const stim=document.getElementById('stimulus');
 
-let sequenceMain=[],sequencePractice=[],currentSeq=[];
-let isPractice=true,trialIndex=0,stimulusActive=false,tStimOn=null,logs=[],startType=null,audioCtx=null;
+let sequenceMain=[],currentSeq=[],trialIndex=0,stimulusActive=false,tStimOn=null,logs=[],startType=null,audioCtx=null;
 
 /* ================= UTILITIES ================= */
 function randBetween(a,b){return a+Math.random()*(b-a);}
@@ -66,8 +68,7 @@ function nowIso(){return(new Date()).toISOString();}
 function seededShuffle(arr){const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function validMaxRun(seq,maxRun){let runType=null,runLen=0;for(let i=0;i<seq.length;i++){const t=seq[i].type;if(t===runType) runLen++; else {runType=t; runLen=1;}if(runLen>maxRun) return false;}return true;}
 function buildBaseList(){const list=[];neonColors.forEach(c=>{for(let i=0;i<CONFIG.repsPerColor;i++)list.push({...c});});neutralColors.forEach(c=>{for(let i=0;i<CONFIG.repsPerColor;i++)list.push({...c});});return list;}
-function generateSequence(){const base=buildBaseList();for(let attempt=0;attempt<1000;attempt++){let seq=seededShuffle(base);if(validMaxRun(seq,CONFIG.maxSameTypeRun))return seq;}return base;}
-function buildPractice(){return [{id:'P1',name:'Practice Blue',color:'#2E6CE6',glow:'0 0 80px #6EA0FF',type:'Practice'},{id:'P2',name:'Practice Red',color:'#E63C3C',glow:'0 0 80px #FF7F7F',type:'Practice'},{id:'P3',name:'Practice Green',color:'#29C74F',glow:'0 0 80px #7DFF95',type:'Practice'}];}
+function generateSequence(){const base=buildBaseList();for(let attempt=0;attempt<1000;attempt++){let seq=seededShuffle(base);if(validMaxRun(seq,CONFIG.maxSameTypeRun))return seq;}return base();}
 
 /* ================= AUDIO BEEP ================= */
 function playBeep(freq=600,dur=0.12){try{if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();const o=audioCtx.createOscillator();const g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.frequency.value=freq;g.gain.setValueAtTime(0.12,audioCtx.currentTime);o.start();o.stop(audioCtx.currentTime+dur);}catch(e){}}
@@ -78,18 +79,17 @@ startBtn.addEventListener('click',()=>{
   const num=parseInt(pid.replace(/\D/g,''))||Math.floor(Math.random()*100);
   startType=(num%2===0)?'Neon':'Neutral';
   sequenceMain=generateSequence();
-  sequencePractice=buildPractice();
-  currentSeq=sequencePractice.slice();
-  isPractice=true; trialIndex=0; logs=[];
+  currentSeq=sequenceMain.slice();
+  trialIndex=0; logs=[];
   document.getElementById('container').style.display='none';
   showCountdown(3);
 });
 
 /* ================= COUNTDOWN ================= */
 function showCountdown(n){
-  if(n===0){showFixation();return;}
-  trialCounter.style.display='block';
-  trialCounter.textContent=n;
+  if(n===0){countdownEl.style.display='none'; showFixation(); return;}
+  countdownEl.style.display='block';
+  countdownEl.textContent=n;
   playBeep();
   setTimeout(()=>showCountdown(n-1),1000);
 }
@@ -100,12 +100,12 @@ function showFixation(){
   setTimeout(()=>{fixation.style.display='none'; setTimeout(showColor,randBetween(CONFIG.itiMinMs,CONFIG.itiMaxMs));},randBetween(CONFIG.fixationMsMin,CONFIG.fixationMsMax));
 }
 function showColor(){
-  if(trialIndex>=currentSeq.length)return endBlock();
+  if(trialIndex>=currentSeq.length)return finishExperiment();
   const cur=currentSeq[trialIndex];
   stim.style.backgroundColor=cur.color;
   stim.style.boxShadow=cur.glow;
   stim.style.display='block';
-  trialCounter.textContent=`${isPractice?'Practice':'Trial'} ${trialIndex+1} of ${currentSeq.length}`;
+  trialCounter.textContent=`Trial ${trialIndex+1} of ${currentSeq.length}`;
   tStimOn=performance.now(); stimulusActive=true;
 }
 function recordReaction(){
@@ -113,16 +113,12 @@ function recordReaction(){
   const tNow=performance.now(); const rt=Math.round(tNow-tStimOn);
   const cur=currentSeq[trialIndex]; stim.style.display='none'; stim.style.boxShadow='none'; stimulusActive=false;
   logs.push({participant:pidInput.value.trim(),timestamp:nowIso(),trialNum:trialIndex+1,type:cur.type,colorName:cur.name,rt_ms:rt});
-  trialIndex++; if(trialIndex<currentSeq.length)showFixation(); else endBlock();
-}
-function endBlock(){
-  if(isPractice){isPractice=false;currentSeq=sequenceMain.slice();trialIndex=0;showCountdown(3);}
-  else finishExperiment();
+  trialIndex++; if(trialIndex<currentSeq.length)showFixation(); else finishExperiment();
 }
 
 /* ================= FINISH & CSV ================= */
 function finishExperiment(){
-  const mainLogs=logs.filter(l=>l.type!=='Practice');
+  const mainLogs=logs;
   const neonRTs=mainLogs.filter(l=>l.type==='Neon').map(l=>l.rt_ms);
   const neutralRTs=mainLogs.filter(l=>l.type==='Neutral').map(l=>l.rt_ms);
   const mean=(arr)=>arr.length?Math.round(arr.reduce((a,b)=>a+b,0)/arr.length):null;
@@ -142,6 +138,7 @@ function finishExperiment(){
   document.getElementById('download').addEventListener('click',()=>downloadCSV(mainLogs,avgNeon,avgNeutral));
   document.getElementById('restart').addEventListener('click',()=>location.reload());
 }
+
 function downloadCSV(logs,avgNeon,avgNeutral){
   const participant=pidInput.value.trim();
   const timestamp_finish=nowIso();
