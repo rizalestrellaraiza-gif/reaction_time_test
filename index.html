@@ -9,9 +9,10 @@ body{margin:0;font-family:Arial,Segoe UI,Helvetica,sans-serif;background:#fff;co
 #container{padding:4vh 6%;margin-top:6vh}
 input,button{font-size:18px;padding:10px;border-radius:8px}
 #start,#download{background:#007bff;color:#fff;border:0;padding:14px 30px;margin-top:12px;cursor:pointer}
-#stimulus,#fixation,#countdown{position:absolute;top:0;left:0;width:100vw;height:100vh;display:none;z-index:1000;transition:background 0.12s}
-#fixation{font-size:90px;text-align:center;line-height:100vh}
-#countdown{font-size:120px;text-align:center;line-height:100vh;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2000}
+#stimulus,#fixation,#countdown{position:absolute;display:none;z-index:1000;transition:all 0.12s}
+#stimulus{width:150px;height:150px;border-radius:50%;cursor:pointer;}
+#fixation,#countdown{width:100vw;height:100vh;text-align:center;line-height:100vh;font-size:90px;}
+#countdown{font-size:120px;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2000}
 #trialCounter{position:absolute;width:100%;text-align:center;top:10px;font-size:22px;color:gray}
 table{margin:auto;border-collapse:collapse;margin-top:14px}
 th,td{padding:8px;border:1px solid #ddd;text-align:center}
@@ -21,7 +22,7 @@ th,td{padding:8px;border:1px solid #ddd;text-align:center}
 
 <div id="container">
 <h1>Reaction Time Test</h1>
-<p><strong>Tap the space bar (or tap the screen)</strong> as soon as you see the color appear.</p>
+<p><strong>TAP THE SPACE BAR (OR TAP THE SCREEN)</strong> AS SOON AS YOU SEE THE COLOR APPEAR.</p>
 <div style="margin-top:10px">
 <label for="pid">Participant ID</label><br>
 <input id="pid" type="text" placeholder="e.g., P001" style="width:220px">
@@ -34,22 +35,22 @@ th,td{padding:8px;border:1px solid #ddd;text-align:center}
 <div id="trialCounter"></div>
 <div id="fixation">+</div>
 <div id="countdown"></div>
-<div id="stimulus" role="button" aria-label="Stimulus" style="cursor:pointer"></div>
+<div id="stimulus" role="button" aria-label="Stimulus"></div>
 
 <script>
 /* ================= CONFIG ================= */
-const CONFIG={repsPerColor:2,fixationMsMin:700,fixationMsMax:1500,itiMinMs:800,itiMaxMs:2500,maxSameTypeRun:1};
+const CONFIG={repsPerColor:2,fixationMsMin:700,fixationMsMax:1500,itiMinMs:800,itiMaxMs:3000,maxSameTypeRun:1};
 
 /* ================= COLORS ================= */
 const neonColors=[
-  {id:'N1',name:'Neon Yellow',color:'#FFFF00',glow:'0 0 150px #FFFF66',type:'Neon'},
-  {id:'N2',name:'Neon Pink',color:'#FF00FF',glow:'0 0 150px #FF66FF',type:'Neon'},
-  {id:'N3',name:'Neon Orange',color:'#FF5E00',glow:'0 0 150px #FF9933',type:'Neon'}
+{id:'N1',name:'Neon Yellow',color:'#FFFF00',glow:'0 0 30px #FFFF66',type:'Neon'},
+{id:'N2',name:'Neon Pink',color:'#FF00FF',glow:'0 0 30px #FF66FF',type:'Neon'},
+{id:'N3',name:'Neon Orange',color:'#FF5E00',glow:'0 0 30px #FF9933',type:'Neon'}
 ];
 const neutralColors=[
-  {id:'U1',name:'Beige',color:'#E6D8B3',glow:'none',type:'Neutral'},
-  {id:'U2',name:'Gray',color:'#B0B0B0',glow:'none',type:'Neutral'},
-  {id:'U3',name:'Light Brown',color:'#C4A484',glow:'none',type:'Neutral'}
+{id:'U1',name:'Beige',color:'#E6D8B3',glow:'none',type:'Neutral'},
+{id:'U2',name:'Gray',color:'#B0B0B0',glow:'none',type:'Neutral'},
+{id:'U3',name:'Light Brown',color:'#C4A484',glow:'none',type:'Neutral'}
 ];
 
 /* ================= DOM & STATE ================= */
@@ -60,7 +61,7 @@ const fixation=document.getElementById('fixation');
 const countdownEl=document.getElementById('countdown');
 const stim=document.getElementById('stimulus');
 
-let sequenceMain=[],currentSeq=[],trialIndex=0,stimulusActive=false,tStimOn=null,logs=[],startType=null,audioCtx=null;
+let sequenceMain=[],trialIndex=0,stimulusActive=false,tStimOn=null,logs=[],startType=null,audioCtx=null;
 
 /* ================= UTILITIES ================= */
 function randBetween(a,b){return a+Math.random()*(b-a);}
@@ -79,7 +80,6 @@ startBtn.addEventListener('click',()=>{
   const num=parseInt(pid.replace(/\D/g,''))||Math.floor(Math.random()*100);
   startType=(num%2===0)?'Neon':'Neutral';
   sequenceMain=generateSequence();
-  currentSeq=sequenceMain.slice();
   trialIndex=0; logs=[];
   document.getElementById('container').style.display='none';
   showCountdown(3);
@@ -97,23 +97,31 @@ function showCountdown(n){
 /* ================= TRIAL FLOW ================= */
 function showFixation(){
   fixation.style.display='block';
-  setTimeout(()=>{fixation.style.display='none'; setTimeout(showColor,randBetween(CONFIG.itiMinMs,CONFIG.itiMaxMs));},randBetween(CONFIG.fixationMsMin,CONFIG.fixationMsMax));
+  let fixationDuration = randBetween(CONFIG.fixationMsMin,CONFIG.fixationMsMax);
+  let itiDuration = randBetween(CONFIG.itiMinMs,CONFIG.itiMaxMs);
+  setTimeout(()=>{
+    fixation.style.display='none';
+    setTimeout(showColor, itiDuration);
+  }, fixationDuration);
 }
 function showColor(){
-  if(trialIndex>=currentSeq.length)return finishExperiment();
-  const cur=currentSeq[trialIndex];
-  stim.style.backgroundColor=cur.color;
-  stim.style.boxShadow=cur.glow;
+  if(trialIndex>=sequenceMain.length)return finishExperiment();
+  const cur=sequenceMain[trialIndex];
+  // random position for unpredictability
+  stim.style.top = `${randBetween(20,70)}vh`;
+  stim.style.left = `${randBetween(10,80)}vw`;
+  stim.style.background = cur.color;
+  stim.style.boxShadow = cur.glow;
   stim.style.display='block';
-  trialCounter.textContent=`Trial ${trialIndex+1} of ${currentSeq.length}`;
+  trialCounter.textContent=`Trial ${trialIndex+1} of ${sequenceMain.length}`;
   tStimOn=performance.now(); stimulusActive=true;
 }
 function recordReaction(){
   if(!stimulusActive)return;
   const tNow=performance.now(); const rt=Math.round(tNow-tStimOn);
-  const cur=currentSeq[trialIndex]; stim.style.display='none'; stim.style.boxShadow='none'; stimulusActive=false;
+  const cur=sequenceMain[trialIndex]; stim.style.display='none'; stim.style.boxShadow='none'; stimulusActive=false;
   logs.push({participant:pidInput.value.trim(),timestamp:nowIso(),trialNum:trialIndex+1,type:cur.type,colorName:cur.name,rt_ms:rt});
-  trialIndex++; if(trialIndex<currentSeq.length)showFixation(); else finishExperiment();
+  trialIndex++; if(trialIndex<sequenceMain.length)showFixation(); else finishExperiment();
 }
 
 /* ================= FINISH & CSV ================= */
