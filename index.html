@@ -8,9 +8,9 @@
 body{margin:0;font-family:Arial,Segoe UI,Helvetica,sans-serif;background:#fff;color:#111;text-align:center;overflow:hidden}
 #container{padding:4vh 6%;margin-top:6vh}
 input,button{font-size:18px;padding:10px;border-radius:8px}
-#start,#download{background:#007bff;color:#fff;border:0;padding:14px 30px;margin-top:12px;cursor:pointer}
+#start,#download{background:#007bff;color:#fff;border:0;padding:14px 30px;margin-top:12px;cursor:pointer;font-weight:bold;}
 #stimulus,#fixation,#countdown{position:absolute;display:none;z-index:1000;transition:all 0.12s}
-#stimulus{width:150px;height:150px;border-radius:50%;cursor:pointer;}
+#stimulus{cursor:pointer;}
 #fixation,#countdown{width:100vw;height:100vh;text-align:center;line-height:100vh;font-size:90px;}
 #countdown{font-size:120px;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2000}
 #trialCounter{position:absolute;width:100%;text-align:center;top:10px;font-size:22px;color:gray}
@@ -21,14 +21,16 @@ th,td{padding:8px;border:1px solid #ddd;text-align:center}
 <body>
 
 <div id="container">
-<h1>Reaction Time Test</h1>
-<p><strong>TAP THE SPACE BAR (OR TAP THE SCREEN)</strong> AS SOON AS YOU SEE THE COLOR APPEAR.</p>
+<h1><strong>REACTION TIME TEST</strong></h1>
+<p><strong>TAP THE SPACE BAR (OR TAP THE SCREEN) AS SOON AS YOU SEE THE COLOR APPEAR.</strong></p>
+<p><strong>AVOID DISTRACTIONS DURING THE TEST.</strong></p>
+<p><strong>KEEP YOUR EYES ON THE SCREEN AND RESPOND QUICKLY.</strong></p>
 <div style="margin-top:10px">
-<label for="pid">Participant ID</label><br>
+<label for="pid"><strong>Participant ID</strong></label><br>
 <input id="pid" type="text" placeholder="e.g., P001" style="width:220px">
 </div>
 <div style="margin-top:14px">
-<button id="start">Start Reaction Test</button>
+<button id="start"><strong>Start Reaction Test</strong></button>
 </div>
 </div>
 
@@ -89,6 +91,7 @@ startBtn.addEventListener('click',()=>{
 function showCountdown(n){
   if(n===0){countdownEl.style.display='none'; showFixation(); return;}
   countdownEl.style.display='block';
+  countdownEl.style.fontWeight='bold';
   countdownEl.textContent=n;
   playBeep();
   setTimeout(()=>showCountdown(n-1),1000);
@@ -107,10 +110,15 @@ function showFixation(){
 function showColor(){
   if(trialIndex>=sequenceMain.length)return finishExperiment();
   const cur=sequenceMain[trialIndex];
-  // random position for unpredictability
+  // random size, rotation, position for paint sticker effect
+  let size = randBetween(100,200);
+  stim.style.width = `${size}px`;
+  stim.style.height = `${size}px`;
+  stim.style.borderRadius = '50%';
+  stim.style.background = `radial-gradient(circle at 30% 30%, ${cur.color}, ${cur.color}80)`;
+  stim.style.transform = `rotate(${randBetween(0,360)}deg)`;
   stim.style.top = `${randBetween(20,70)}vh`;
   stim.style.left = `${randBetween(10,80)}vw`;
-  stim.style.background = cur.color;
   stim.style.boxShadow = cur.glow;
   stim.style.display='block';
   trialCounter.textContent=`Trial ${trialIndex+1} of ${sequenceMain.length}`;
