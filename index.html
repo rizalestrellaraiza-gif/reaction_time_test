@@ -10,12 +10,10 @@ body{margin:0;font-family:Arial,Segoe UI,Helvetica,sans-serif;background:#fff;co
 h1{font-size:36px;margin-bottom:8px}
 input,button{font-size:18px;padding:10px;border-radius:8px}
 #start,#download{background:#007bff;color:#fff;border:0;padding:14px 30px;margin-top:12px;cursor:pointer}
-#stimulus{width:100vw;height:100vh;display:none;transition:background 0.12s}
-#fixation{position:absolute;top:45vh;left:50%;transform:translateX(-50%);font-size:90px;display:none}
+#stimulus,#fixation{position:absolute;top:0;left:0;width:100vw;height:100vh;display:none;z-index:1000;transition:background 0.12s}
+#fixation{font-size:90px;text-align:center;line-height:100vh}
 #countdown,#trialCounter{position:absolute;width:100%;text-align:center;top:40vh;font-size:80px;display:none}
 #trialCounter{top:10px;font-size:22px;color:gray}
-#msg{font-size:20px;margin-top:2vh;display:none}
-#status{font-size:14px;color:gray;margin-top:8px}
 </style>
 </head>
 <body>
@@ -29,8 +27,6 @@ input,button{font-size:18px;padding:10px;border-radius:8px}
 <div style="margin-top:14px">
 <button id="start">Start Reaction Test</button>
 </div>
-<div id="status"></div>
-<div id="msg"></div>
 </div>
 
 <div id="countdown"></div>
@@ -42,20 +38,27 @@ input,button{font-size:18px;padding:10px;border-radius:8px}
 /* =========================
    CONFIGURATION
    ========================= */
-const CONFIG={repsPerColor:2,maxSameTypeRun:2,practiceTrials:3,fixationMsMin:800,fixationMsMax:1200,itiMinMs:1000,itiMaxMs:3000};
+const CONFIG={repsPerColor:2,maxSameTypeRun:2,fixationMsMin:800,fixationMsMax:1200,itiMinMs:1000,itiMaxMs:3000};
 
 /* =========================
    COLORS
    ========================= */
-const neonColors=[{id:'N1',name:'Neon Yellow',color:'#FFFF00',glow:'0 0 150px #FFFF66',type:'Neon'},{id:'N2',name:'Neon Pink',color:'#FF00FF',glow:'0 0 150px #FF66FF',type:'Neon'},{id:'N3',name:'Neon Orange',color:'#FF5E00',glow:'0 0 150px #FF9933',type:'Neon'}];
-const neutralColors=[{id:'U1',name:'Beige',color:'#E6D8B3',glow:'none',type:'Neutral'},{id:'U2',name:'Gray',color:'#B0B0B0',glow:'none',type:'Neutral'},{id:'U3',name:'Light Brown',color:'#C4A484',glow:'none',type:'Neutral'}];
+const neonColors=[
+  {id:'N1',name:'Neon Yellow',color:'#FFFF00',glow:'0 0 150px #FFFF66',type:'Neon'},
+  {id:'N2',name:'Neon Pink',color:'#FF00FF',glow:'0 0 150px #FF66FF',type:'Neon'},
+  {id:'N3',name:'Neon Orange',color:'#FF5E00',glow:'0 0 150px #FF9933',type:'Neon'}
+];
+const neutralColors=[
+  {id:'U1',name:'Beige',color:'#E6D8B3',glow:'none',type:'Neutral'},
+  {id:'U2',name:'Gray',color:'#B0B0B0',glow:'none',type:'Neutral'},
+  {id:'U3',name:'Light Brown',color:'#C4A484',glow:'none',type:'Neutral'}
+];
 
 /* =========================
    DOM ELEMENTS & STATE
    ========================= */
 const startBtn=document.getElementById('start');
 const pidInput=document.getElementById('pid');
-const msgEl=document.getElementById('msg');
 const countdownEl=document.getElementById('countdown');
 const trialCounter=document.getElementById('trialCounter');
 const fixation=document.getElementById('fixation');
@@ -65,81 +68,93 @@ let sequenceMain=[],sequencePractice=[],currentSeq=[];
 let isPractice=true,trialIndex=0,stimulusActive=false,tStimOn=null,logs=[],startType=null;
 
 /* =========================
-   UTILITY FUNCTIONS
+   UTILITIES
    ========================= */
 function randBetween(a,b){return a+Math.random()*(b-a);}
 function nowIso(){return(new Date()).toISOString();}
-function seedFromString(s){let h=2166136261>>>0;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h+=(h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24);}return h>>>0;}
-function mulberry32(a){return function(){var t=a+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296;};}
-function seededShuffle(arr,rng){const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
-function validMaxRun(seq,maxRun){let runType=null,runLen=0;for(let i=0;i<seq.length;i++){const t=seq[i].type;if(t===runType)runLen++;else{runType=t;runLen=1;}if(runLen>maxRun)return false;}return true;}
+function seededShuffle(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function validMaxRun(seq,maxRun){
+  let runType=null,runLen=0;
+  for(let i=0;i<seq.length;i++){
+    const t=seq[i].type;
+    if(t===runType) runLen++; else {runType=t; runLen=1;}
+    if(runLen>maxRun) return false;
+  }
+  return true;
+}
 
 /* =========================
    SEQUENCE GENERATION
    ========================= */
 function buildBaseList(){
   const list=[];
-  neonColors.forEach(c=>{for(let i=0;i<CONFIG.repsPerColor;i++)list.push({...c});});
-  neutralColors.forEach(c=>{for(let i=0;i<CONFIG.repsPerColor;i++)list.push({...c});});
+  neonColors.forEach(c=>{for(let i=0;i<CONFIG.repsPerColor;i++) list.push({...c});});
+  neutralColors.forEach(c=>{for(let i=0;i<CONFIG.repsPerColor;i++) list.push({...c});});
   return list;
 }
 
 function generateSequence(startType){
-  const base=buildBaseList();
-  const seedVal=Math.random().toString(36).slice(2,10);
-  const rng=mulberry32(seedFromString(seedVal));
-  let seq;
-  for(let i=0;i<2000;i++){seq=seededShuffle(base,rng);if(validMaxRun(seq,CONFIG.maxSameTypeRun))break;}
-  
-  // ORDER BIAS CONTROL
-  if(startType==='Neon') seq.sort((a,b)=>a.type==='Neon'&&b.type==='Neutral'?-1:1);
-  else seq.sort((a,b)=>a.type==='Neutral'&&b.type==='Neon'?-1:1);
-  return seq;
+  let base=buildBaseList();
+  for(let attempt=0;attempt<1000;attempt++){
+    let seq=seededShuffle(base);
+    if(validMaxRun(seq,CONFIG.maxSameTypeRun)){
+      // order control for first block
+      if(startType==='Neon') seq.sort((a,b)=>a.type==='Neon'&&b.type==='Neutral'?-1:1);
+      else seq.sort((a,b)=>a.type==='Neutral'&&b.type==='Neon'?-1:1);
+      return seq;
+    }
+  }
+  return base;
 }
 
-/* PRACTICE BLOCK */
-function buildPractice(){return[{id:'P1',name:'Practice Blue',color:'#2E6CE6',glow:'0 0 80px #6EA0FF',type:'Practice'},{id:'P2',name:'Practice Red',color:'#E63C3C',glow:'0 0 80px #FF7F7F',type:'Practice'},{id:'P3',name:'Practice Green',color:'#29C74F',glow:'0 0 80px #7DFF95',type:'Practice'}];}
+function buildPractice(){
+  return [
+    {id:'P1',name:'Practice Blue',color:'#2E6CE6',glow:'0 0 80px #6EA0FF',type:'Practice'},
+    {id:'P2',name:'Practice Red',color:'#E63C3C',glow:'0 0 80px #FF7F7F',type:'Practice'},
+    {id:'P3',name:'Practice Green',color:'#29C74F',glow:'0 0 80px #7DFF95',type:'Practice'}
+  ];
+}
 
 /* =========================
    START BUTTON
    ========================= */
 startBtn.addEventListener('click',()=>{
-  const pid=pidInput.value.trim();
+  const pid = pidInput.value.trim();
   if(!pid){alert('Please enter Participant ID'); return;}
-
-  // Determine start type based on PID
   const num=parseInt(pid.replace(/\D/g,''))||Math.floor(Math.random()*100);
   startType=(num%2===0)?'Neon':'Neutral';
 
   sequenceMain=generateSequence(startType);
   sequencePractice=buildPractice();
   currentSeq=sequencePractice.slice();
-  isPractice=true;
-  trialIndex=0;
-  logs=[];
+  isPractice=true; trialIndex=0; logs=[];
 
-  // Hide instruction container immediately
+  // hide container immediately
   document.getElementById('container').style.display='none';
 
-  // Ready message briefly
-  msgEl.style.display='block';
-  msgEl.textContent=`Practice trials first.`;
-  setTimeout(()=>{msgEl.style.display='none'; showCountdown();},800);
+  // direct start countdown
+  showCountdown();
 });
 
-/* COUNTDOWN */
+/* =========================
+   COUNTDOWN & TRIAL FLOW
+   ========================= */
 function showCountdown(){
-  let c=3; 
-  countdownEl.style.display='block'; 
-  countdownEl.textContent=c;
+  let c=3; countdownEl.style.display='block'; countdownEl.textContent=c;
   const iv=setInterval(()=>{
-    c--; 
-    if(c>0){countdownEl.textContent=c;}
-    else{clearInterval(iv); countdownEl.style.display='none'; showFixation();}
+    c--;
+    if(c>0){ countdownEl.textContent=c; }
+    else { clearInterval(iv); countdownEl.style.display='none'; showFixation(); }
   },1000);
 }
 
-/* TRIAL FLOW */
 function showFixation(){
   fixation.style.display='block';
   setTimeout(()=>{
@@ -174,25 +189,24 @@ function recordReaction(){
   else endBlock();
 }
 
-/* END BLOCK */
 function endBlock(){
   if(isPractice){
     isPractice=false;
     currentSeq=sequenceMain.slice();
     trialIndex=0;
-    msgEl.style.display='block';
-    msgEl.textContent='Main test will start now.';
-    setTimeout(()=>{msgEl.style.display='none'; showCountdown();},1000);
+    showCountdown();
   } else finishExperiment();
 }
 
-/* FINISH & CSV */
+/* =========================
+   FINISH & CSV
+   ========================= */
 function finishExperiment(){
   const mainLogs=logs.filter(l=>l.type!=='Practice');
-  const neonRTsArr=mainLogs.filter(l=>l.type==='Neon').map(l=>l.rt_ms);
-  const neutralRTsArr=mainLogs.filter(l=>l.type==='Neutral').map(l=>l.rt_ms);
+  const neonRTs=mainLogs.filter(l=>l.type==='Neon').map(l=>l.rt_ms);
+  const neutralRTs=mainLogs.filter(l=>l.type==='Neutral').map(l=>l.rt_ms);
   const mean=(arr)=>arr.length?Math.round(arr.reduce((a,b)=>a+b,0)/arr.length):null;
-  const avgNeon=mean(neonRTsArr), avgNeutral=mean(neutralRTsArr);
+  const avgNeon=mean(neonRTs), avgNeutral=mean(neutralRTs);
 
   document.body.innerHTML=`
     <div style="padding:20px;">
@@ -206,7 +220,7 @@ function finishExperiment(){
           <li>Order Bias: 10 participants start Neon, 10 start Neutral.</li>
           <li>Practice block reduces learning effects.</li>
           <li>Random ITI/fixation reduces anticipation/fatigue effects.</li>
-          <li>Randomized sequence via seeded shuffle.</li>
+          <li>Randomized sequence via shuffle.</li>
           <li>Self-paced: no invalid trials.</li>
         </ul>
       </section>
@@ -232,10 +246,12 @@ function downloadCSV(logs,avgNeon,avgNeutral){
   a.click();
 }
 
-/* INPUT HANDLING */
+/* =========================
+   INPUT HANDLING
+   ========================= */
 document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();recordReaction();}});
-stim.addEventListener('click',()=>{recordReaction();});
-document.addEventListener('touchstart',()=>{recordReaction();},{passive:true});
+stim.addEventListener('click',()=>recordReaction());
+document.addEventListener('touchstart',()=>recordReaction(),{passive:true});
 </script>
 </body>
 </html>
