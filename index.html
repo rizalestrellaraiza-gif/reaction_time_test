@@ -21,9 +21,13 @@ input,button{font-size:18px;padding:10px;border-radius:8px}
 </head>
 <body>
 <div id="container">
-<h1>🎨 Neon vs Neutral — Reaction Time Test</h1>
+<h1>🎨 Reaction Time Test</h1>
 <p>
 You will see colors appear one at a time. <strong>Press SPACE or TAP</strong> the screen as soon as you see the color.<br>
+Keep screen brightness steady.<br>
+Sit in a well-lit room.<br>
+Use only one device.<br>
+Avoid distractions during the test.
 </p>
 <div style="margin-top:10px">
 <label for="pid">Participant ID</label><br>
@@ -110,10 +114,7 @@ function generateSequence(startType){
   let seq;
   for(let i=0;i<2000;i++){seq=seededShuffle(base,rng);if(validMaxRun(seq,CONFIG.maxSameTypeRun))break;}
   
-  // ===============================
   // ORDER BIAS CONTROL
-  // Reorder first trial to match startType (Neon-first or Neutral-first)
-  // ===============================
   if(startType==='Neon') seq.sort((a,b)=>a.type==='Neon'&&b.type==='Neutral'?-1:1);
   else seq.sort((a,b)=>a.type==='Neutral'&&b.type==='Neon'?-1:1);
   return seq;
@@ -172,10 +173,8 @@ function showCountdown(){
    ========================= */
 function showFixation(){
   fixation.style.display='block';
-  // RANDOMIZED fixation duration for fatigue/anticipation control
   setTimeout(()=>{
     fixation.style.display='none';
-    // RANDOM ITI (self-paced, stimulus onset independent)
     setTimeout(showColor, randBetween(CONFIG.itiMinMs,CONFIG.itiMaxMs));
   }, randBetween(CONFIG.fixationMsMin,CONFIG.fixationMsMax));
 }
@@ -190,10 +189,6 @@ function showColor(){
   trialCounter.textContent=`${isPractice?'Practice':'Trial'} ${trialIndex+1} of ${currentSeq.length}`;
   tStimOn=performance.now();
   stimulusActive=true;
-  // ===============================
-  // SELF-PACED CONTROL
-  // The color remains until participant presses. No auto-lapse or invalid trials.
-  // ===============================
 }
 
 function recordReaction(){
@@ -203,7 +198,6 @@ function recordReaction(){
   const cur=currentSeq[trialIndex];
   stim.style.display='none'; stim.style.boxShadow='none'; stimulusActive=false;
 
-  // LOG TRIAL
   logs.push({
     participant: pidInput.value.trim(),
     timestamp: nowIso(),
@@ -242,7 +236,6 @@ function finishExperiment(){
   const mean=(arr)=>arr.length?Math.round(arr.reduce((a,b)=>a+b,0)/arr.length):null;
   const avgNeon=mean(neonRTsArr), avgNeutral=mean(neutralRTsArr);
 
-  // RESULTS UI + RESEARCH NOTES (bias control)
   document.body.innerHTML=`
     <div style="padding:20px;">
       <h2>Results — Participant ${pidInput.value.trim()}</h2>
