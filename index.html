@@ -9,8 +9,8 @@ body{margin:0;font-family:Arial,Segoe UI,Helvetica,sans-serif;background:#fff;co
 #container{padding:4vh 6%;margin-top:6vh}
 input,button{font-size:18px;padding:10px;border-radius:8px}
 #start,#download{background:#007bff;color:#fff;border:0;padding:14px 30px;margin-top:12px;cursor:pointer;font-weight:bold;}
-#stimulus,#fixation,#countdown{position:absolute;display:none;z-index:1000;transition:all 0.12s}
-#stimulus{cursor:pointer;}
+#stimulus,#fixation,#countdown{position:absolute;display:none;z-index:1000;transition:background 0.12s}
+#stimulus{top:0; left:0; width:100vw; height:100vh; border-radius:0; cursor:pointer;}
 #fixation,#countdown{width:100vw;height:100vh;text-align:center;line-height:100vh;font-size:90px;}
 #countdown{font-size:120px;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2000}
 #trialCounter{position:absolute;width:100%;text-align:center;top:10px;font-size:22px;color:gray}
@@ -45,9 +45,9 @@ const CONFIG={repsPerColor:2,fixationMsMin:700,fixationMsMax:1500,itiMinMs:800,i
 
 /* ================= COLORS ================= */
 const neonColors=[
-{id:'N1',name:'Neon Yellow',color:'#FFFF00',glow:'0 0 30px #FFFF66',type:'Neon'},
-{id:'N2',name:'Neon Pink',color:'#FF00FF',glow:'0 0 30px #FF66FF',type:'Neon'},
-{id:'N3',name:'Neon Orange',color:'#FF5E00',glow:'0 0 30px #FF9933',type:'Neon'}
+{id:'N1',name:'Neon Yellow',color:'#FFFF00',glow:'0 0 50px #FFFF66',type:'Neon'},
+{id:'N2',name:'Neon Pink',color:'#FF00FF',glow:'0 0 50px #FF66FF',type:'Neon'},
+{id:'N3',name:'Neon Orange',color:'#FF5E00',glow:'0 0 50px #FF9933',type:'Neon'}
 ];
 const neutralColors=[
 {id:'U1',name:'Beige',color:'#E6D8B3',glow:'none',type:'Neutral'},
@@ -107,23 +107,17 @@ function showFixation(){
     setTimeout(showColor, itiDuration);
   }, fixationDuration);
 }
+
 function showColor(){
   if(trialIndex>=sequenceMain.length)return finishExperiment();
   const cur=sequenceMain[trialIndex];
-  // random size, rotation, position for paint sticker effect
-  let size = randBetween(100,200);
-  stim.style.width = `${size}px`;
-  stim.style.height = `${size}px`;
-  stim.style.borderRadius = '50%';
-  stim.style.background = `radial-gradient(circle at 30% 30%, ${cur.color}, ${cur.color}80)`;
-  stim.style.transform = `rotate(${randBetween(0,360)}deg)`;
-  stim.style.top = `${randBetween(20,70)}vh`;
-  stim.style.left = `${randBetween(10,80)}vw`;
-  stim.style.boxShadow = cur.glow;
+  stim.style.background = cur.color; // full-screen
+  stim.style.boxShadow = cur.glow;   // Neon glow
   stim.style.display='block';
   trialCounter.textContent=`Trial ${trialIndex+1} of ${sequenceMain.length}`;
   tStimOn=performance.now(); stimulusActive=true;
 }
+
 function recordReaction(){
   if(!stimulusActive)return;
   const tNow=performance.now(); const rt=Math.round(tNow-tStimOn);
